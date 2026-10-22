@@ -124,3 +124,31 @@ def test_config_defaults():
     cfg = data_io.load_config()
     assert cfg["judgement"]["b0_small"] == 0.05
     assert cfg["flag"]["r_high"] == 1.25
+
+
+def test_T15_pk_input():
+    d = data_io.parse_drug(drug(actions={
+        "P": {"type": "agonist", "F": 0.5, "dose": 100, "CL": 10, "tau": 12, "EC50": 0.41667,
+              "source": "v"},
+        "Q": {"type": "antagonist", "F": 0.5, "dose": 100, "CL": 10, "tau": 12, "KB": 0.41667 / 2,
+              "source": "v"}}), ENZ)
+    assert d["actions"]["P"]["input"]["C"] == pytest.approx(0.4167, abs=1e-3)
+    assert d["actions"]["P"]["c"] == pytest.approx(1.0, abs=1e-3)
+    assert d["actions"]["Q"]["c"] == pytest.approx(2.0, abs=1e-3)
+
+
+def test_pk_input_errors():
+    pk = {"F": 0.5, "dose": 100, "CL": 10, "tau": 12}
+    with pytest.raises(DataError, match="EC50"):
+        data_io.parse_drug(drug(actions={"P": {"type": "agonist", **pk, "KB": 1, "source": "v"}}), ENZ)
+    with pytest.raises(DataError, match="KB"):
+        data_io.parse_drug(drug(actions={"P": {"type": "antagonist", **pk, "EC50": 1, "source": "v"}}), ENZ)
+    with pytest.raises(DataError, match="하나만"):
+        data_io.parse_drug(drug(actions={"P": {"type": "agonist", **pk, "EC50": 1, "c": 1,
+                                                 "source": "v"}}), ENZ)
+    with pytest.raises(DataError, match="tau"):
+        data_io.parse_drug(drug(actions={"P": {"type": "agonist", "F": 0.5, "dose": 100, "CL": 10,
+                                                 "EC50": 1, "source": "v"}}), ENZ)
+    with pytest.raises(DataError, match="F"):
+        data_io.parse_drug(drug(actions={"P": {"type": "agonist", **pk, "F": 1.5, "EC50": 1,
+                                                 "source": "v"}}), ENZ)

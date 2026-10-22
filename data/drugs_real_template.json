@@ -1,5 +1,5 @@
 {
-  "_안내": "실제 약 자료 빈 양식. 숫자(null)와 출처(source)를 직접 채운다. 값이 0인 원소는 적지 않는다. inhibits는 s,t 대신 Ki, conc_liver, conc_gut로 적어도 된다. actions는 c 대신 e(작용제만)로 적어도 된다.",
+  "_안내": "실제 약 자료 빈 양식. 숫자(null)와 출처(source)를 직접 채운다. 값이 0인 원소는 적지 않는다. inhibits는 s,t 대신 Ki, conc_liver, conc_gut로 적어도 된다. actions는 c 대신 e(작용제만)로, 또는 F, dose, CL, tau와 EC50(작용제)·KB(차단제)로 적어도 된다(C = F×dose÷(CL×tau), c = C÷EC50 또는 C÷KB). 단위는 서로 맞춘다.",
   "drugs": [
     {
       "name": "",

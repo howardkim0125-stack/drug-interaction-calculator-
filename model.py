@@ -22,6 +22,16 @@ def s_from_ki(conc, ki):
     return x / (1 + x)
 
 
+def pk_concentration(F, dose, CL, tau):
+    """평균 농도 C = F × dose ÷ (CL × tau)."""
+    return F * dose / (CL * tau)
+
+
+def c_from_pk(F, dose, CL, tau, ec50_or_kb):
+    """작용 세기 c = C ÷ EC50 (작용제) 또는 C ÷ KB (차단제)."""
+    return pk_concentration(F, dose, CL, tau) / ec50_or_kb
+
+
 def scale_inhibition(s, dose_ratio):
     """용량이 dose_ratio배일 때의 억제 정도. x = s ÷ (1 − s)를 dose_ratio배 한다."""
     if dose_ratio == 1:

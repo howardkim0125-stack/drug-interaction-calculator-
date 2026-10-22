@@ -2,6 +2,7 @@
 
 이 파일은 평가 도구이며 시스템 코드가 아니다(진실 규칙을 import하는 것은 여기뿐).
 """
+import copy
 import math
 import random
 from itertools import combinations
@@ -54,9 +55,57 @@ def system_results(combos, rules, cfg):
     return [interpret.analyze(c, rules, cfg, check=False) for c in combos]
 
 
-def compare(sys_results, rules, world, cfg):
-    """시스템 결과와 진짜 값을 비교해 지표와 상세 행을 만든다."""
+MODELS = ("system", "simple_sum", "proportional")
+MODEL_KO = {"system": "현재 시스템", "simple_sum": "비교 1: 단순 합산", "proportional": "비교 2: 비례 모델"}
+
+
+def clip(x):
+    return max(-1.0, min(1.0, x))
+
+
+def predict(sys, model, cfg):
+    """한 조합에 대한 모델의 예측: r, 평균 농도를 바꾸는 쌍, 효과별 B₀·B_full·판정·발현.
+
+    system       현재 시스템(판정은 cfg 기준으로 다시 계산)
+    simple_sum   r = 1, 효과 값 = clip(Σ 단독 값), 기준값도 같은 식(r = 1)
+    proportional 효과 값 = clip(Σ r × 단독 값), 기준값 = clip(Σ 단독 값)
+    단독 값은 시스템이 계산한 '약 하나만 먹었을 때의 효과 값'이다.
+    """
+    names = sys["drugs"]
+    r_sys = {n: sys["ratios"][n]["r"] for n in names}
+    pairs_sys = {(c["from"], c["to"]) for c in sys["classification"]["concentration"]}
+    if model == "simple_sum":
+        r, pairs = {n: 1.0 for n in names}, set()
+    else:
+        r, pairs = r_sys, pairs_sys
+    effects = []
+    for e in sys["effects"]:
+        if not e["involved"]:
+            continue
+        singles = e["singles"]
+        if model == "system":
+            b0, bf = e["B0"], e["Bfull"]
+        elif model == "simple_sum":
+            b0 = bf = clip(sum(singles.values()))
+        else:
+            b0 = clip(sum(singles.values()))
+            bf = clip(sum(r[n] * v for n, v in singles.items()))
+        verdict = interpret.judge(b0, bf, cfg)[0]
+        shown = interpret.manifestation(e["rule"], singles, b0, bf)[0]
+        effects.append({"effect": e["effect"], "rule": e["rule"], "involved": e["involved"],
+                        "B0": b0, "Bfull": bf, "verdict": verdict, "manifest": shown})
+    return {"drugs": names, "r": r, "pairs": pairs, "effects": effects}
+
+
+def truth_results(sys_results, world):
+    return [world.evaluate(s["drugs"]) for s in sys_results]
+
+
+def compare(sys_results, rules, world, cfg, model="system", truths=None):
+    """모델 예측과 진짜 값을 비교해 지표와 상세 행을 만든다."""
     tol = cfg["evaluate"]["affect_tol"]
+    if truths is None:
+        truths = truth_results(sys_results, world)
     mech = {"tp": 0, "fp": 0, "fn": 0, "tn": 0}
     judge = {"tp": 0, "fp": 0, "fn": 0, "tn": 0}
     mani = {"tp": 0, "fp": 0, "fn": 0, "tn": 0}
@@ -69,27 +118,23 @@ def compare(sys_results, rules, world, cfg):
         key = ("tp" if actual else "fp") if predicted else ("fn" if actual else "tn")
         box[key] += 1
 
-    for sys in sys_results:
-        names = sys["drugs"]
-        tru = world.evaluate(names)
+    for sys, tru in zip(sys_results, truths):
+        pred = predict(sys, model, cfg)
+        names = pred["drugs"]
         nonconverged += not tru["converged"]
         combo = "+".join(names)
         for n in names:
-            r_err.append(abs(sys["ratios"][n]["r"] - tru["r"][n]))
+            r_err.append(abs(pred["r"][n] - tru["r"][n]))
 
         if len(names) == 2:
-            flagged = {(c["from"], c["to"]) for c in sys["classification"]["concentration"]}
             for a, b in ((names[0], names[1]), (names[1], names[0])):
                 actual = abs(tru["r"][b] - 1) > tol
-                predicted = (a, b) in flagged
+                predicted = (a, b) in pred["pairs"]
                 count(mech, predicted, actual)
-                pair_rows.append([a, b, int(predicted), int(actual),
-                                  sys["ratios"][b]["r"], tru["r"][b],
+                pair_rows.append([a, b, int(predicted), int(actual), pred["r"][b], tru["r"][b],
                                   int((a, b) in world.transporter_pairs)])
 
-        for e in sys["effects"]:
-            if not e["involved"]:
-                continue
+        for e in pred["effects"]:
             eff = e["effect"]
             t_b0, t_bf = tru["B0"][eff], tru["Bfull"][eff]
             t_verdict = interpret.judge(t_b0, t_bf, cfg)[0]
@@ -124,12 +169,63 @@ def compare(sys_results, rules, world, cfg):
     }
 
 
-def evaluate_world(seed, cfg, settings, n_drugs, triples=0):
+def build_world(seed, cfg, settings, n_drugs, triples=0):
+    """가상 세계 하나: 시스템 결과, 숨은 진실, 진짜 값."""
     drugs, rules = generator.generate(seed, cfg["virtual"], n_drugs)
     combos = pick_combos(drugs, triples, seed)
     sys = system_results(combos, rules, cfg)
     world = truth_mod.TruthWorld(drugs, rules, settings, seed)
-    return compare(sys, rules, world, cfg)
+    return {"seed": seed, "rules": rules, "sys": sys, "world": world,
+            "truths": truth_results(sys, world)}
+
+
+def evaluate_world(seed, cfg, settings, n_drugs, triples=0, model="system"):
+    b = build_world(seed, cfg, settings, n_drugs, triples)
+    return compare(b["sys"], b["rules"], b["world"], cfg, model, b["truths"])
+
+
+def compare_models(worlds, cfg, models=MODELS):
+    """같은 숨은 세계에서 모델마다 같은 지표를 계산한다."""
+    runs = []
+    for b in worlds:
+        for model in models:
+            res = compare(b["sys"], b["rules"], b["world"], cfg, model, b["truths"])
+            runs.append({"model": model, "seed": b["seed"], **res["metrics"]})
+    return runs
+
+
+def with_ratio_thresholds(cfg, up, down):
+    out = copy.deepcopy(cfg)
+    out["judgement"]["ratio_up"] = up
+    out["judgement"]["ratio_down"] = down
+    return out
+
+
+def sensitivity(worlds, cfg, thresholds):
+    """판정 비율 기준을 바꿔(시스템·진짜 양쪽) 판정 지표를 다시 계산한다."""
+    runs = []
+    for up, down in thresholds:
+        c2 = with_ratio_thresholds(cfg, up, down)
+        for b in worlds:
+            res = compare(b["sys"], b["rules"], b["world"], c2, "system", b["truths"])
+            runs.append({"thresholds": f"{up:g}/{down:g}", "seed": b["seed"], **res["metrics"]})
+    return runs
+
+
+def summarize_by(runs, key, metrics):
+    """key마다 지표의 평균·최솟값·최댓값(NaN 제외)."""
+    groups = {}
+    for run in runs:
+        groups.setdefault(run[key], []).append(run)
+    rows = []
+    for g, items in groups.items():
+        for m in metrics:
+            vals = [x[m] for x in items if not math.isnan(x[m])]
+            if vals:
+                rows.append([g, m, sum(vals) / len(vals), min(vals), max(vals), len(vals)])
+            else:
+                rows.append([g, m, math.nan, math.nan, math.nan, 0])
+    return [key, "metric", "mean", "min", "max", "n_seeds"], rows
 
 
 def stress(cfg, factors=truth_mod.FACTORS, seeds=None, strengths=None, n_drugs=None,
@@ -155,7 +251,7 @@ def stress(cfg, factors=truth_mod.FACTORS, seeds=None, strengths=None, n_drugs=N
             for level in levels:
                 st = truth_mod.with_strength(base, factor, level)
                 world = truth_mod.TruthWorld(drugs, rules, st, seed)
-                res = compare(sys, rules, world, cfg)
+                res = compare(sys, rules, world, cfg, "system")
                 runs.append({"factor": factor, "strength": level, "seed": seed,
                              "nonconverged": res["nonconverged"], **res["metrics"]})
                 if progress:

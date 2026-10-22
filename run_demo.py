@@ -1,13 +1,15 @@
 """예시 가상 약으로 전체 계산을 보여 준다.
 
-사용: python run_demo.py [약 이름 ...] [--drugs 파일] [--rules 파일] [--prefix 이름]
+사용: python run_demo.py [약 이름 ...] [--drugs 파일] [--rules 파일] [--prefix 이름] [--trace]
 """
 import argparse
 import sys
+from pathlib import Path
 
 import data_io
 import explain
 import interpret
+import calc_trace
 
 
 def main(argv=None):
@@ -18,6 +20,7 @@ def main(argv=None):
     ap.add_argument("--config", default=str(data_io.ROOT / "config.json"))
     ap.add_argument("--prefix", default="demo")
     ap.add_argument("--out", default=str(data_io.OUT_DIR))
+    ap.add_argument("--trace", action="store_true", help="계산 과정을 식 순서대로 출력하고 마크다운으로 저장")
     args = ap.parse_args(argv)
 
     cfg = data_io.load_config(args.config)
@@ -31,8 +34,15 @@ def main(argv=None):
         drugs = [by_name[n] for n in args.names]
 
     res = interpret.analyze(drugs, rules, cfg)
-    print(explain.format_report(res, cfg))
     paths = explain.write_outputs(res, cfg, args.out, args.prefix)
+    if args.trace:
+        text, _ = calc_trace.build(drugs, rules, cfg, res)
+        path = Path(args.out) / f"{args.prefix}_trace.md"
+        path.write_text(text, encoding="utf-8")
+        paths.append(path)
+        print(text)
+    else:
+        print(explain.format_report(res, cfg))
     print("\n저장: " + ", ".join(str(p.relative_to(data_io.ROOT)) if p.is_relative_to(data_io.ROOT) else str(p)
                                  for p in paths))
     return res

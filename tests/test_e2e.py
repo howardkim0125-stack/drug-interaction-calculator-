@@ -104,3 +104,19 @@ def test_r_flag():
     assert interpret.r_flag(1.25, CFG) == "평균 농도 증가"
     assert interpret.r_flag(0.8, CFG) == "평균 농도 감소"
     assert interpret.r_flag(1.1, CFG) is None
+
+
+def test_E2E_3_two_inhibitors_same_enzyme():
+    a = data_io.parse_drug({"name": "A", "inhibits": {
+        "CYP3A": {"s": 0.5, "t": 0, "source": "virtual"}}}, ENZ)
+    b = data_io.parse_drug({"name": "B", "inhibits": {
+        "CYP3A": {"s": 0.5, "t": 0, "source": "virtual"}}}, ENZ)
+    c = data_io.parse_drug({"name": "C", "metabolism": {
+        "CYP3A": {"f": 0.8, "g": 0, "source": "virtual"}}}, ENZ)
+    rules = data_io.parse_rules({"effects": {"X": {"up": ["P"], "source": "virtual"}}})
+    res = interpret.analyze([a, b, c], rules, CFG, check=False)
+    assert res["ratios"]["C"]["r"] == approx(2.5)
+    assert res["ratios"]["A"]["r"] == approx(1.0)
+    assert res["ratios"]["B"]["r"] == approx(1.0)
+    pairs = sorted((p["from"], p["to"]) for p in res["classification"]["concentration"])
+    assert pairs == [("A", "C"), ("B", "C")]

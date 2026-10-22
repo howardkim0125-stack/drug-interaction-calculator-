@@ -129,3 +129,12 @@ def test_target_actions_uses_r_and_dose_ratio():
     b = mk("B", actions={"P": {"type": "antagonist", "c": 1.0, "source": "v"}})
     t = model.target_actions([a, b], {"A": 1.5, "B": 1.0})
     assert t["P"]["E"] == approx(1.5 / (1 + 1.5 + 1.0))
+
+
+def test_T14_dose_ratio_inhibition():
+    assert model.scale_inhibition(0.6, 2) == approx(0.75)
+
+
+def test_T15_pk_to_c():
+    assert model.pk_concentration(0.5, 100, 10, 12) == approx(0.4167)
+    assert model.c_from_pk(0.5, 100, 10, 12, 0.41667) == approx(1.0)

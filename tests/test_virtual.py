@@ -133,7 +133,7 @@ def _imports(path):
 
 def test_system_never_imports_truth():
     for f in ("data_io.py", "model.py", "classify.py", "interpret.py", "explain.py",
-              "tables.py", "run_demo.py"):
+              "tables.py", "run_demo.py", "calc_trace.py", "plotstyle.py", "figures.py"):
         assert not any("truth" in n for n in _imports(ROOT / f)), f
 
 

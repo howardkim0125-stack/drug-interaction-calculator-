@@ -1,10 +1,12 @@
 """가상 약 대량 시험 실행 (명세 6-3).
 
 사용:
-  python run_eval.py                       기본 평가(config의 seed, 약 20개, 2약 조합 전체)
-  python run_eval.py --n-drugs 50 --triples  약 50개 + 무작위 3약 조합
+  python run_eval.py                       기본 평가(config의 seed, 약 20개, 2약 조합 전체 + 3약 조합 200개)
+  python run_eval.py --no-triples          3약 조합 없이
   python run_eval.py --stress              스트레스 시험(요인별 세기 0, 0.1, 0.2, 0.4 × seed 10개)
-  python run_eval.py --stress --factors noise transporter --n-drugs 50
+  python run_eval.py --compare             비교 모델 1·2와 현재 시스템(seed 10개)
+  python run_eval.py --sensitivity         판정 비율 기준 민감도(seed 10개)
+  python run_eval.py --all                 위 네 가지 모두
 """
 import argparse
 import json
@@ -14,6 +16,7 @@ from datetime import datetime, timezone
 import data_io
 import evaluate
 from data_io import DISCLAIMER, OUT_DIR
+from plotstyle import AQUA, BLUE, GRID, ORANGE, SURFACE, TEXT_PRIMARY, TEXT_SECONDARY, setup_font
 from tables import format_table, write_csv
 from virtual import generator
 from virtual import truth as truth_mod
@@ -107,13 +110,10 @@ PANELS = [
     ("효과 값 평균절대오차", "MAE of effect value", ["mae_effect"], False),
 ]
 # 지표마다 정해진 색(같은 지표는 모든 칸에서 같은 색): 정밀도 파랑, 재현율 주황, 일치율 청록
-SERIES_COLOR = {"precision": "#2a78d6", "recall": "#eb6834", "agreement": "#1baf7a", "mae": "#2a78d6"}
+SERIES_COLOR = {"precision": BLUE, "recall": ORANGE, "agreement": AQUA, "mae": BLUE}
 # 값이 겹쳐도 둘 다 보이도록 선 모양과 표식도 다르게(나중 것이 점선으로 위에 그려짐)
 SERIES_STYLE = {"precision": ("-", "o"), "recall": ("--", "s"), "agreement": (":", "D"), "mae": ("-", "o")}
-TEXT_PRIMARY, TEXT_SECONDARY, GRID, SURFACE = "#0b0b0b", "#52514e", "#e4e3df", "#fcfcfb"
 SYMBOL = {"m": "m", "delta": "δ", "q": "q", "eps": "ε"}
-KOREAN_FONTS = ["Malgun Gothic", "AppleGothic", "Apple SD Gothic Neo", "NanumGothic",
-                "NanumBarunGothic", "Noto Sans CJK KR", "Noto Sans KR", "UnDotum"]
 
 
 def _series_kind(key):
@@ -123,24 +123,12 @@ def _series_kind(key):
     return "precision"
 
 
-def _setup_font():
-    """한글 글꼴이 있으면 쓰고, 없으면 영어 이름표를 쓴다."""
-    from matplotlib import font_manager, rcParams
-    have = {f.name for f in font_manager.fontManager.ttflist}
-    for name in KOREAN_FONTS:
-        if name in have:
-            rcParams["font.family"] = name
-            rcParams["axes.unicode_minus"] = False
-            return True
-    return False
-
-
 def plot_factor(summary_rows, factor, cfg, path, n_seeds):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    ko = _setup_font()
+    ko = setup_font()
     data = {}
     for f, strength, metric, mean, lo, hi, _ in summary_rows:
         if f == factor:
@@ -256,13 +244,151 @@ def run_stress(cfg, factors, n_drugs, triples, out_dir, seeds=None):
     return runs, rows
 
 
+# ---------------------------------------------------------------- 비교 모델과 판정 기준 민감도
+
+MODEL_COLOR = {"system": BLUE, "simple_sum": ORANGE, "proportional": AQUA}
+MODEL_EN = {"system": "Current system", "simple_sum": "Model 1: simple sum",
+            "proportional": "Model 2: proportional"}
+METRIC_FULL_EN = {
+    "mech_precision": "Mechanism precision", "mech_recall": "Mechanism recall",
+    "mech_accuracy": "Mechanism accuracy", "judge_precision": "Verdict-level precision",
+    "judge_recall": "Verdict-level recall", "judge_accuracy": "Verdict-level accuracy",
+    "mae_r": "MAE of r", "mae_effect": "MAE of effect value",
+    "verdict_agreement": "Verdict agreement (3×3)", "manifest_precision": "Manifestation precision",
+    "manifest_recall": "Manifestation recall",
+}
+SENS_METRICS = ["verdict_agreement", "judge_precision", "judge_recall"]
+
+
+def build_worlds(cfg, seeds, n_drugs, triples):
+    return [evaluate.build_world(seed, cfg, cfg["truth"], n_drugs, triples) for seed in seeds]
+
+
+def plot_models(rows, path, n_seeds):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    ko = setup_font()
+    stats = {(m, k): (mean, lo, hi) for m, k, mean, lo, hi, _ in rows}
+    rate_keys = [k for k, _ in evaluate.METRICS if not k.startswith("mae")]
+    mae_keys = ["mae_r", "mae_effect"]
+    models = list(evaluate.MODELS)
+    fig, axes = plt.subplots(1, 2, figsize=(14, 7.5), facecolor=SURFACE,
+                             gridspec_kw={"width_ratios": [3, 2]})
+    height = 0.8 / len(models)
+    for ax, keys, title in ((axes[0], rate_keys, ("비율 지표", "Rate metrics")),
+                            (axes[1], mae_keys, ("평균절대오차(MAE)", "Mean absolute error"))):
+        ax.set_facecolor(SURFACE)
+        top = 0.0
+        for i, key in enumerate(keys):
+            for j, model in enumerate(models):
+                y = i + (j - (len(models) - 1) / 2) * height
+                mean, lo, hi = stats[(model, key)]
+                if math.isnan(mean):
+                    ax.text(0.005, y, "값 없음" if ko else "n/a", va="center", fontsize=8,
+                            color=TEXT_SECONDARY)
+                    continue
+                if mean == 0:
+                    ax.text(0.005, y, "0", va="center", fontsize=8, color=TEXT_SECONDARY)
+                ax.barh(y, mean, height=height * 0.85, color=MODEL_COLOR[model], linewidth=0)
+                ax.plot([lo, hi], [y, y], color=TEXT_SECONDARY, linewidth=1)
+                top = max(top, hi)
+        ax.set_yticks(range(len(keys)))
+        ax.set_yticklabels([METRIC_KO[k] if ko else METRIC_FULL_EN[k] for k in keys], color=TEXT_PRIMARY)
+        ax.invert_yaxis()
+        ax.set_xlim(0, 1.0 if ax is axes[0] else max(top * 1.15, 0.01))
+        ax.set_title(title[0] if ko else title[1], color=TEXT_PRIMARY, fontsize=11, loc="left")
+        ax.grid(axis="x", color=GRID, linewidth=0.8)
+        ax.set_axisbelow(True)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        for side in ("left", "bottom"):
+            ax.spines[side].set_color(GRID)
+        ax.tick_params(colors=TEXT_SECONDARY, labelsize=9)
+    from matplotlib.patches import Patch
+    handles = [Patch(color=MODEL_COLOR[m], label=evaluate.MODEL_KO[m] if ko else MODEL_EN[m]) for m in models]
+    fig.legend(handles=handles, loc="upper right", ncol=3, frameon=False, fontsize=10,
+               labelcolor=TEXT_SECONDARY, bbox_to_anchor=(0.99, 0.995))
+    if ko:
+        title = f"비교 모델과 현재 시스템 — 같은 숨은 세계(기본 세기), seed {n_seeds}개 평균, 가는 선은 최솟값~최댓값"
+        foot = DISCLAIMER
+    else:
+        title = f"Comparison models vs current system — same hidden worlds, mean of {n_seeds} seeds, line = min to max"
+        foot = "Result of a math-inquiry model; not a real medication decision."
+    fig.suptitle(title, x=0.01, ha="left", color=TEXT_PRIMARY, fontsize=12)
+    fig.text(0.01, 0.01, foot, color=TEXT_SECONDARY, fontsize=9)
+    fig.tight_layout(rect=(0, 0.03, 1, 0.93))
+    fig.savefig(path, dpi=130, facecolor=SURFACE)
+    plt.close(fig)
+    return path
+
+
+def _cell(mean, lo, hi):
+    return "-" if math.isnan(mean) else f"{mean:.3f} [{lo:.3f}, {hi:.3f}]"
+
+
+def run_compare_and_sensitivity(cfg, out_dir, do_compare=True, do_sensitivity=True, n_drugs=None):
+    mc = cfg["evaluate"]["multi"]
+    seeds, triples = mc["seeds"], mc["triples"]
+    n_drugs = n_drugs or mc["n_drugs"]
+    thresholds = [tuple(x) for x in cfg["evaluate"]["sensitivity"]["ratios"]]
+    log_run({"mode": "compare/sensitivity", "compare": do_compare, "sensitivity": do_sensitivity,
+             "seeds": seeds, "n_drugs": n_drugs, "triples": triples, "ratio_thresholds": thresholds,
+             "truth": cfg["truth"], "virtual": cfg["virtual"], "judgement": cfg["judgement"]},
+            out_dir / "run_log.json")
+    worlds = build_worlds(cfg, seeds, n_drugs, triples)
+    keys = [k for k, _ in evaluate.METRICS]
+    out = {}
+
+    if do_compare:
+        runs = evaluate.compare_models(worlds, cfg)
+        head, rows = evaluate.summarize_by(runs, "model", keys)
+        write_csv(out_dir / "compare_models_runs.csv", ["model", "seed", *keys],
+                  [[r["model"], r["seed"], *[r[k] for k in keys]] for r in runs])
+        write_csv(out_dir / "compare_models.csv", head, rows)
+        stats = {(m, k): (mean, lo, hi) for m, k, mean, lo, hi, _ in rows}
+        table = [[label, *[_cell(*stats[(m, k)]) for m in evaluate.MODELS]] for k, label in evaluate.METRICS]
+        print(format_table(["지표 (평균 [최소, 최대])", *[evaluate.MODEL_KO[m] for m in evaluate.MODELS]],
+                           table, f"비교 모델 (약 {n_drugs}개, 2약 전체 + 3약 {triples}개, seed {len(seeds)}개)"))
+        print()
+        plot_models(rows, out_dir / "compare_models.png", len(seeds))
+        out["compare"] = rows
+
+    if do_sensitivity:
+        runs = evaluate.sensitivity(worlds, cfg, thresholds)
+        head, rows = evaluate.summarize_by(runs, "thresholds", SENS_METRICS)
+        write_csv(out_dir / "sensitivity_runs.csv", ["thresholds", "seed", *SENS_METRICS],
+                  [[r["thresholds"], r["seed"], *[r[k] for k in SENS_METRICS]] for r in runs])
+        write_csv(out_dir / "sensitivity.csv", head, rows)
+        stats = {(g, k): (mean, lo, hi) for g, k, mean, lo, hi, _ in rows}
+        labels = [f"{u:g}/{d:g}" for u, d in thresholds]
+        table = [[METRIC_KO[k], *[_cell(*stats[(g, k)]) for g in labels]] for k in SENS_METRICS]
+        print(format_table(["지표 (평균 [최소, 최대])", *[f"기준 {g}" for g in labels]], table,
+                           "판정 기준 민감도 (시스템·진짜 양쪽에 같은 기준)"))
+        print()
+        out["sensitivity"] = rows
+
+    print(DISCLAIMER)
+    saved = []
+    if do_compare:
+        saved += ["compare_models.csv", "compare_models_runs.csv", "compare_models.png"]
+    if do_sensitivity:
+        saved += ["sensitivity.csv", "sensitivity_runs.csv"]
+    print("저장: " + ", ".join(f"out/{x}" for x in saved))
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="가상 약 대량 시험")
     ap.add_argument("--config", default=str(data_io.ROOT / "config.json"))
     ap.add_argument("--seed", type=int)
     ap.add_argument("--n-drugs", type=int)
-    ap.add_argument("--triples", action="store_true", help="무작위 3약 조합도 평가(개수는 config)")
-    ap.add_argument("--stress", action="store_true")
+    ap.add_argument("--no-triples", action="store_true", help="기본 평가에서 3약 조합을 빼기")
+    ap.add_argument("--stress", action="store_true", help="스트레스 시험")
+    ap.add_argument("--compare", action="store_true", help="비교 모델 평가")
+    ap.add_argument("--sensitivity", action="store_true", help="판정 기준 민감도")
+    ap.add_argument("--all", action="store_true", help="기본 평가, 스트레스 시험, 비교 모델, 민감도 모두")
     ap.add_argument("--factors", nargs="+", choices=truth_mod.FACTORS, default=list(truth_mod.FACTORS))
     ap.add_argument("--out", default=str(OUT_DIR))
     args = ap.parse_args(argv)
@@ -271,12 +397,19 @@ def main(argv=None):
     cfg = data_io.load_config(args.config)
     out_dir = Path(args.out)
     ev = cfg["evaluate"]
-    triples = ev["triples"] if args.triples else 0
-    if args.stress:
+    basic = args.all or not (args.stress or args.compare or args.sensitivity)
+    result = {}
+    if basic:
+        seed = ev["seed"] if args.seed is None else args.seed
+        triples = 0 if args.no_triples else ev["triples"]
+        result["basic"] = run_basic(cfg, seed, args.n_drugs or ev["n_drugs"], triples, out_dir)
+    if args.stress or args.all:
         n = args.n_drugs or ev["stress"]["n_drugs"]
-        return run_stress(cfg, args.factors, n, triples or ev["stress"]["triples"], out_dir)
-    seed = ev["seed"] if args.seed is None else args.seed
-    return run_basic(cfg, seed, args.n_drugs or ev["n_drugs"], triples, out_dir)
+        result["stress"] = run_stress(cfg, args.factors, n, ev["stress"]["triples"], out_dir)
+    if args.compare or args.sensitivity or args.all:
+        result.update(run_compare_and_sensitivity(cfg, out_dir, args.compare or args.all,
+                                                  args.sensitivity or args.all, args.n_drugs))
+    return result["basic"] if list(result) == ["basic"] else result
 
 
 if __name__ == "__main__":

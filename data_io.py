@@ -24,6 +24,7 @@ DEFAULT_CONFIG = {
 
 DRUG_KEYS = {"name", "dose_ratio", "metabolism", "inhibits", "induces", "actions"}
 ACTION_TYPES = ("agonist", "antagonist")
+PK_KEYS = ("F", "dose", "CL", "tau")
 SUM_TOL = 1e-9
 
 
@@ -159,13 +160,16 @@ def parse_drug(raw, enzymes=None):
             cg = _num(item, "conc_gut", w, lo=0)
             xl, xg = cl / ki, cg / ki
             s, t = xl / (1 + xl), xg / (1 + xg)
+            given = {"Ki": ki, "conc_liver": cl, "conc_gut": cg}
         else:
             _check_keys(item, {"s", "t", "source"}, w)
             s = _num(item, "s", w, 0, 1, hi_open=True)
             t = _num(item, "t", w, 0, 1, hi_open=True)
+            given = None
         if s == 0 and t == 0:
             _warn(f"{w}: s, t가 모두 0인 원소는 적지 않는다")
-        drug["inhibits"][enz] = {"s": s, "t": t, "from_ki": by_ki, "source": _source(item, w)}
+        drug["inhibits"][enz] = {"s": s, "t": t, "from_ki": by_ki, "ki_input": given,
+                                 "source": _source(item, w)}
 
     for enz, item in _section(raw, "induces", where).items():
         w = f"{where} induces.{enz}"
@@ -182,23 +186,37 @@ def parse_drug(raw, enzymes=None):
         w = f"{where} actions.{tgt}"
         if not isinstance(item, dict):
             raise DataError(f"{w}: 값은 객체여야 한다")
-        _check_keys(item, {"type", "c", "e", "source"}, w)
+        _check_keys(item, {"type", "c", "e", "source", *PK_KEYS, "EC50", "KB"}, w)
         typ = item.get("type")
         if typ not in ACTION_TYPES:
             raise DataError(f"{w}: type은 'agonist' 또는 'antagonist'여야 한다")
-        if "c" in item and "e" in item:
-            raise DataError(f"{w}: c와 e를 함께 쓸 수 없다")
-        if "e" in item:
+        ways = [name for name, keys in (("c", ("c",)), ("e", ("e",)),
+                                        ("pk", (*PK_KEYS, "EC50", "KB"))) if any(k in item for k in keys)]
+        if len(ways) != 1:
+            raise DataError(f"{w}: c, e, (F·dose·CL·tau·EC50/KB) 중 하나만 써야 한다")
+        way = ways[0]
+        given = None
+        if way == "e":
             if typ != "agonist":
                 raise DataError(f"{w}: e는 작용제(agonist)에만 쓸 수 있다")
             e = _num(item, "e", w, 0, 1, hi_open=True)
             c = e / (1 - e)
+            given = {"e": e}
+        elif way == "pk":
+            need, other = ("EC50", "KB") if typ == "agonist" else ("KB", "EC50")
+            if other in item:
+                raise DataError(f"{w}: {'작용제' if typ == 'agonist' else '차단제'}에는 {need}를 쓴다({other} 아님)")
+            given = {"F": _num(item, "F", w, 0, 1, lo_open=True)}
+            for k in ("dose", "CL", "tau", need):
+                given[k] = _num(item, k, w, lo=0, lo_open=True)
+            given["C"] = given["F"] * given["dose"] / (given["CL"] * given["tau"])
+            c = given["C"] / given[need]
         else:
             c = _num(item, "c", w, lo=0)
         if c == 0:
             _warn(f"{w}: 작용 세기가 0인 원소는 적지 않는다")
-        drug["actions"][tgt] = {"type": typ, "c": c, "from_e": "e" in item,
-                                "source": _source(item, w)}
+        drug["actions"][tgt] = {"type": typ, "c": c, "from_e": way == "e", "way": way,
+                                "input": given, "source": _source(item, w)}
     return drug
 
 
