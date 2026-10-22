@@ -1,0 +1,7 @@
+{
+  "_안내": "데모용 가상 규칙표. 실제 몸의 값이 아니다.",
+  "effects": {
+    "효과X": { "up": ["P1", "P2"], "down": [], "k": 3.0, "threshold": 0.7, "source": "virtual" },
+    "효과Y": { "up": ["P3"], "down": ["P4"], "k": 1.0, "threshold": null, "source": "virtual" }
+  }
+}

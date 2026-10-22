@@ -1,0 +1,52 @@
+{
+ "effects": {
+  "E1": {
+   "up": [
+    "T4",
+    "T1"
+   ],
+   "down": [
+    "T6"
+   ],
+   "k": 3.1351943561390905,
+   "threshold": 0.5382984770761778,
+   "source": "virtual"
+  },
+  "E2": {
+   "up": [
+    "T2",
+    "T5",
+    "T6"
+   ],
+   "down": [
+    "T1"
+   ],
+   "k": 1.0,
+   "threshold": null,
+   "source": "virtual"
+  },
+  "E3": {
+   "up": [
+    "T5",
+    "T6"
+   ],
+   "down": [],
+   "k": 2.9193269930405146,
+   "threshold": null,
+   "source": "virtual"
+  },
+  "E4": {
+   "up": [
+    "T3",
+    "T4",
+    "T1"
+   ],
+   "down": [
+    "T5"
+   ],
+   "k": 2.561693606168361,
+   "threshold": 0.5762618380673594,
+   "source": "virtual"
+  }
+ }
+}

@@ -1,0 +1,21 @@
+{
+  "_안내": "실제 약 자료 빈 양식. 숫자(null)와 출처(source)를 직접 채운다. 값이 0인 원소는 적지 않는다. inhibits는 s,t 대신 Ki, conc_liver, conc_gut로 적어도 된다. actions는 c 대신 e(작용제만)로 적어도 된다.",
+  "drugs": [
+    {
+      "name": "",
+      "dose_ratio": 1,
+      "metabolism": {
+        "CYP3A": { "f": null, "g": null, "source": "" }
+      },
+      "inhibits": {
+        "CYP3A": { "s": null, "t": null, "source": "" }
+      },
+      "induces": {
+        "CYP3A": { "u": null, "source": "" }
+      },
+      "actions": {
+        "GABA_A": { "type": "agonist", "c": null, "source": "" }
+      }
+    }
+  ]
+}

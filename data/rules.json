@@ -1,0 +1,12 @@
+{
+  "_안내": "몸의 규칙표. 모든 약이 함께 쓴다. k: 0=같은 대상처럼 더함, 1=서로 따로(기본값), >1=시너지, 0~1=일부 겹침. threshold: 근거 없으면 null. source에 출처를 적는다.",
+  "effects": {
+    "sedation": {
+      "up": ["GABA_A", "H1_block"],
+      "down": [],
+      "k": 1.0,
+      "threshold": null,
+      "source": ""
+    }
+  }
+}

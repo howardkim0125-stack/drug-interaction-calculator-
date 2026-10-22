@@ -1,0 +1,37 @@
+{
+  "_안내": "데모용 가상 약. 실제 약이 아니며 모든 숫자는 임의의 가상 값이다.",
+  "drugs": [
+    {
+      "name": "가상약A",
+      "metabolism": { "CYP3A": { "f": 0.3, "g": 0.2, "source": "virtual" } },
+      "inhibits": { "CYP3A": { "s": 0.6, "t": 0.8, "source": "virtual" } },
+      "actions": { "P1": { "type": "agonist", "e": 0.3, "source": "virtual" } }
+    },
+    {
+      "name": "가상약B",
+      "metabolism": { "CYP3A": { "f": 0.7, "g": 0.5, "source": "virtual" } },
+      "actions": {
+        "P1": { "type": "agonist", "e": 0.4, "source": "virtual" },
+        "P3": { "type": "agonist", "c": 0.5, "source": "virtual" }
+      }
+    },
+    {
+      "name": "가상약C",
+      "metabolism": {
+        "CYP2C19": { "f": 0.6, "g": 0.0, "source": "virtual" },
+        "CYP3A": { "f": 0.2, "g": 0.1, "source": "virtual" }
+      },
+      "actions": { "P2": { "type": "agonist", "c": 0.3, "source": "virtual" } }
+    },
+    {
+      "name": "가상약D",
+      "dose_ratio": 2,
+      "metabolism": { "CYP2D6": { "f": 0.8, "g": 0.0, "source": "virtual" } },
+      "induces": { "CYP2C19": { "u": 1.0, "source": "virtual" } },
+      "actions": {
+        "P3": { "type": "antagonist", "c": 0.5, "source": "virtual" },
+        "P4": { "type": "agonist", "c": 0.2, "source": "virtual" }
+      }
+    }
+  ]
+}

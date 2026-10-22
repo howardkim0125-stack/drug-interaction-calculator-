@@ -1,0 +1,13 @@
+﻿metric,name,value
+mech_precision,기전 수준 정밀도,1.0
+mech_recall,기전 수준 재현율,0.783625730994152
+mech_accuracy,기전 수준 정확도,0.9026315789473685
+judge_precision,판정 수준 정밀도,0.9282051282051282
+judge_recall,판정 수준 재현율,0.6678966789667896
+judge_accuracy,판정 수준 정확도,0.8377535101404057
+mae_r,r 평균절대오차,0.037742042222404314
+mae_effect,효과 값 평균절대오차,0.041718311946086356
+verdict_agreement,판정 일치율(3×3),0.8315132605304212
+manifest_precision,발현 정밀도,0.42857142857142855
+manifest_recall,발현 재현율,1.0
+# 수학 탐구 모델의 결과이며 실제 복약 판단이 아니다.

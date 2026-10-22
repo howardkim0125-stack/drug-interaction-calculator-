@@ -1,0 +1,641 @@
+{
+ "drugs": [
+  {
+   "name": "V01",
+   "metabolism": {
+    "CYP2C9": {
+     "f": 0.26160671302805355,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2D6": {
+     "f": 0.26953308098271905,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP1A2": {
+     "s": 0.6971773965462407,
+     "t": 0.8956552149697891,
+     "source": "virtual"
+    }
+   },
+   "induces": {},
+   "actions": {
+    "T3": {
+     "type": "agonist",
+     "c": 2.1405633838800084,
+     "source": "virtual"
+    },
+    "T2": {
+     "type": "antagonist",
+     "c": 2.7593550104333544,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V02",
+   "metabolism": {
+    "CYP2C19": {
+     "f": 0.9016725270731011,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {},
+   "induces": {
+    "CYP2D6": {
+     "u": 1.3376134735369893,
+     "source": "virtual"
+    }
+   },
+   "actions": {
+    "T1": {
+     "type": "agonist",
+     "c": 2.14902808861398,
+     "source": "virtual"
+    },
+    "T3": {
+     "type": "agonist",
+     "c": 2.4619539035448743,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V03",
+   "metabolism": {
+    "CYP2C19": {
+     "f": 0.0671310317944932,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2D6": {
+     "f": 0.22689408933325064,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2C9": {
+     "f": 0.25179092634806666,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP2C19": {
+     "s": 0.22308069042072606,
+     "t": 0.9364064202740058,
+     "source": "virtual"
+    }
+   },
+   "induces": {},
+   "actions": {
+    "T1": {
+     "type": "agonist",
+     "c": 0.47765090646322106,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V04",
+   "metabolism": {
+    "CYP3A": {
+     "f": 0.9212301115700912,
+     "g": 0.5538494638921061,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {},
+   "induces": {},
+   "actions": {
+    "T5": {
+     "type": "agonist",
+     "c": 2.695613005537358,
+     "source": "virtual"
+    },
+    "T2": {
+     "type": "agonist",
+     "c": 2.8543181323731495,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V05",
+   "metabolism": {
+    "CYP2D6": {
+     "f": 0.010585035766814375,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP1A2": {
+     "f": 0.23493918670049227,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2C19": {
+     "f": 0.5845984668438878,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP2C9": {
+     "s": 0.2807448203899781,
+     "t": 0.6736476053291665,
+     "source": "virtual"
+    }
+   },
+   "induces": {},
+   "actions": {
+    "T2": {
+     "type": "antagonist",
+     "c": 0.8860100823617684,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V06",
+   "metabolism": {
+    "CYP2C19": {
+     "f": 0.06331624788721461,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2D6": {
+     "f": 0.309343881208294,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP3A": {
+     "f": 0.2936079455143192,
+     "g": 0.41860238411474326,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP2C9": {
+     "s": 0.6439444894865989,
+     "t": 0.9305715093309295,
+     "source": "virtual"
+    }
+   },
+   "induces": {},
+   "actions": {
+    "T1": {
+     "type": "antagonist",
+     "c": 0.6467098046718641,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V07",
+   "metabolism": {
+    "CYP3A": {
+     "f": 0.006804876435085302,
+     "g": 0.5766187681437667,
+     "source": "virtual"
+    },
+    "CYP1A2": {
+     "f": 0.3365557429169087,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2C9": {
+     "f": 0.3417093508155998,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP3A": {
+     "s": 0.5354635577455428,
+     "t": 0.8368958995304734,
+     "source": "virtual"
+    }
+   },
+   "induces": {
+    "CYP3A": {
+     "u": 0.907506034920398,
+     "source": "virtual"
+    }
+   },
+   "actions": {
+    "T3": {
+     "type": "antagonist",
+     "c": 0.30871789959136087,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V08",
+   "metabolism": {
+    "CYP2D6": {
+     "f": 0.2010545077444766,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP1A2": {
+     "f": 0.38910444302036734,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP1A2": {
+     "s": 0.3395490533269441,
+     "t": 0.5584294764472542,
+     "source": "virtual"
+    }
+   },
+   "induces": {},
+   "actions": {
+    "T6": {
+     "type": "agonist",
+     "c": 2.9029918188252313,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V09",
+   "metabolism": {
+    "CYP2C19": {
+     "f": 0.9227122968508081,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP2C9": {
+     "s": 0.8449928761245296,
+     "t": 0.9148862291294011,
+     "source": "virtual"
+    }
+   },
+   "induces": {
+    "CYP1A2": {
+     "u": 1.3701274681079876,
+     "source": "virtual"
+    }
+   },
+   "actions": {
+    "T6": {
+     "type": "agonist",
+     "c": 2.0070869798042232,
+     "source": "virtual"
+    },
+    "T3": {
+     "type": "antagonist",
+     "c": 2.103385997832308,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V10",
+   "metabolism": {
+    "CYP3A": {
+     "f": 0.29997350178183335,
+     "g": 0.45729999372271896,
+     "source": "virtual"
+    },
+    "CYP2D6": {
+     "f": 0.5695345562211173,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP2C9": {
+     "s": 0.40151454039948,
+     "t": 0.598531174164258,
+     "source": "virtual"
+    }
+   },
+   "induces": {},
+   "actions": {
+    "T6": {
+     "type": "agonist",
+     "c": 2.2706090554730007,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V11",
+   "metabolism": {
+    "CYP3A": {
+     "f": 0.22182658207270595,
+     "g": 0.22718884219385665,
+     "source": "virtual"
+    },
+    "CYP2C9": {
+     "f": 0.2534828522910951,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2D6": {
+     "f": 0.12084533625853683,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {},
+   "induces": {},
+   "actions": {
+    "T1": {
+     "type": "agonist",
+     "c": 1.7456697911982013,
+     "source": "virtual"
+    },
+    "T4": {
+     "type": "agonist",
+     "c": 2.1561174991403598,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V12",
+   "metabolism": {
+    "CYP1A2": {
+     "f": 0.5319431545556594,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP1A2": {
+     "s": 0.8356279000117142,
+     "t": 0.9047060622011976,
+     "source": "virtual"
+    }
+   },
+   "induces": {
+    "CYP3A": {
+     "u": 0.8429574714878729,
+     "source": "virtual"
+    }
+   },
+   "actions": {
+    "T4": {
+     "type": "agonist",
+     "c": 2.6375473612927864,
+     "source": "virtual"
+    },
+    "T1": {
+     "type": "agonist",
+     "c": 0.6452037527474012,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V13",
+   "metabolism": {
+    "CYP3A": {
+     "f": 0.12575825995008455,
+     "g": 0.43039448598662233,
+     "source": "virtual"
+    },
+    "CYP2C19": {
+     "f": 0.267497316326864,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2C9": {
+     "f": 0.30765283482932315,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP2C9": {
+     "s": 0.6284433742497044,
+     "t": 0.689687026775212,
+     "source": "virtual"
+    }
+   },
+   "induces": {},
+   "actions": {
+    "T3": {
+     "type": "agonist",
+     "c": 2.9376940416428545,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V14",
+   "metabolism": {
+    "CYP1A2": {
+     "f": 0.9269690547986691,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP2D6": {
+     "s": 0.8397167780778163,
+     "t": 0.9279240071578011,
+     "source": "virtual"
+    }
+   },
+   "induces": {},
+   "actions": {
+    "T2": {
+     "type": "agonist",
+     "c": 1.970327941376371,
+     "source": "virtual"
+    },
+    "T5": {
+     "type": "antagonist",
+     "c": 0.5478763968302939,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V15",
+   "metabolism": {
+    "CYP3A": {
+     "f": 0.5203316368376305,
+     "g": 0.33501344165822816,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {},
+   "induces": {},
+   "actions": {
+    "T6": {
+     "type": "agonist",
+     "c": 1.8620298475068018,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V16",
+   "metabolism": {
+    "CYP1A2": {
+     "f": 0.25281278559860676,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2C9": {
+     "f": 0.43341184588752124,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {},
+   "induces": {
+    "CYP2C19": {
+     "u": 0.5527854601549425,
+     "source": "virtual"
+    }
+   },
+   "actions": {
+    "T3": {
+     "type": "agonist",
+     "c": 1.8995605141179999,
+     "source": "virtual"
+    },
+    "T1": {
+     "type": "antagonist",
+     "c": 0.5751955824591702,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V17",
+   "metabolism": {
+    "CYP2D6": {
+     "f": 0.42752060101985356,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2C9": {
+     "f": 0.434763116220853,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2C19": {
+     "f": 0.13236779611408775,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {},
+   "induces": {},
+   "actions": {
+    "T3": {
+     "type": "agonist",
+     "c": 1.0527100590449119,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V18",
+   "metabolism": {
+    "CYP3A": {
+     "f": 0.3426290607810323,
+     "g": 0.4787246166597133,
+     "source": "virtual"
+    },
+    "CYP2C9": {
+     "f": 0.4377859336847418,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {},
+   "induces": {},
+   "actions": {
+    "T6": {
+     "type": "agonist",
+     "c": 0.20969070103406184,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V19",
+   "metabolism": {
+    "CYP2C19": {
+     "f": 0.7815311259628169,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2C9": {
+     "f": 0.03183989744061686,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {},
+   "induces": {
+    "CYP3A": {
+     "u": 0.4574523670586232,
+     "source": "virtual"
+    }
+   },
+   "actions": {
+    "T1": {
+     "type": "agonist",
+     "c": 0.384421880111419,
+     "source": "virtual"
+    }
+   }
+  },
+  {
+   "name": "V20",
+   "metabolism": {
+    "CYP2C9": {
+     "f": 0.15878968411871638,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2D6": {
+     "f": 0.214203669237443,
+     "g": 0.0,
+     "source": "virtual"
+    },
+    "CYP2C19": {
+     "f": 0.5870829880069534,
+     "g": 0.0,
+     "source": "virtual"
+    }
+   },
+   "inhibits": {
+    "CYP2C19": {
+     "s": 0.8919213406695026,
+     "t": 0.9070750232453794,
+     "source": "virtual"
+    }
+   },
+   "induces": {},
+   "actions": {
+    "T2": {
+     "type": "antagonist",
+     "c": 2.4837440051464656,
+     "source": "virtual"
+    },
+    "T3": {
+     "type": "agonist",
+     "c": 0.18009495898135766,
+     "source": "virtual"
+    }
+   }
+  }
+ ]
+}
