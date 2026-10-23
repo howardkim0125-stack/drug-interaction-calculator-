@@ -7,6 +7,8 @@
   <meta name="apple-mobile-web-app-title" content="상호작용 계산기">
   <meta name="description" content="고등학생 수학 탐구용 약물 상호작용 계산기. 서버 없이 기기 안에서만 계산한다.">
   <title>약물 상호작용 계산기</title>
+  <meta name="theme-color" content="#2a78d6">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
@@ -23,6 +25,7 @@
       <button role="tab" data-tab="prompts" aria-selected="false">AI 프롬프트</button>
       <button role="tab" data-tab="rules" aria-selected="false">규칙표</button>
       <button role="tab" data-tab="tutorial" aria-selected="false">튜토리얼</button>
+      <button role="tab" data-tab="install" aria-selected="false">앱 설치</button>
     </nav>
   </header>
 
@@ -32,7 +35,8 @@
       <div class="card">
         <h2><span class="num">1</span>약물 집합 붙여 넣기</h2>
         <p class="hint">AI 프롬프트 탭의 「입력 만들기 프롬프트」로 AI가 만든 JSON을 그대로 붙여 넣으세요.
-          설명 문장이 섞여 있어도 JSON 부분만 찾아 읽어요. 처음이라면 <button class="link" data-goto="tutorial">튜토리얼</button>을 먼저 보세요.</p>
+          설명 문장이 섞여 있어도 JSON 부분만 찾아 읽어요. 값이 비어 있으면 숫자를 만들지 않고 「데이터가 없어서 계산하지 못했다」고 알려 줘요.
+          처음이라면 <button class="link" data-goto="tutorial">튜토리얼</button>을, 휴대폰·패드에 깔려면 <button class="link" data-goto="install">앱 설치</button>를 보세요.</p>
         <textarea id="input" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
           aria-label="약물 집합 JSON" placeholder='{ "drugs": [ ... ], "rules": { "effects": { ... } } }'></textarea>
         <div class="row">
@@ -158,6 +162,8 @@
             <li>AI 채팅에 붙여 넣고 [조사할 약] 칸에 약 이름, 1회 용량, 복용 간격을 적어 보내요.</li>
             <li>AI가 준 JSON과 「빠진 값」 목록을 확인해요.</li>
           </ol>
+          <p>약 이름만 정했다고 계산할 값이 생기지는 않아요. 한 약이 어떤 효소로 분해되고, 다른 약이 그 효소를 막거나 늘린다는 자료가 있어야 계산할 수 있어요.
+            AI가 출처를 찾지 못한 값은 JSON의 <code>missing</code> 목록에 적히고, 계산기는 그 부분을 「데이터 없음」으로 보여 줘요.</p>
           <p class="note"><b>꼭 확인하기</b>: AI가 준 숫자는 <code>source</code>에 적힌 문서에서 직접 확인하세요. 출처가 없는 숫자는 쓰지 마세요.
             연습만 하려면 계산 탭의 「예시 넣기」로 가상 약을 쓰면 돼요.</p>
         </article>
@@ -169,6 +175,8 @@
             <li>「계산하기」를 누르면 약 목록이 나와요. 함께 먹을 약을 <b>2개 이상</b> 골라요. 고를 때마다 바로 다시 계산해요.</li>
             <li><span class="tag err">빨간 상자</span>는 오류예요. 입력을 고쳐야 계산할 수 있어요.
               <span class="tag warn">노란 상자</span>는 경고예요. 계산은 됐지만 출처 빈칸, 규칙표에 없는 대상 같은 것을 확인하세요.</li>
+            <li>결과 맨 위 <b>데이터 상태</b> 상자를 먼저 봐요. 초록은 계산에 필요한 자료가 있음, 노랑은 일부를 데이터가 없어 계산하지 못함,
+              빨강은 <b>데이터가 없어서 계산하지 못함</b>이에요. 자료가 없는 부분은 r = 1이나 0 같은 숫자를 결과처럼 보여 주지 않아요.</li>
           </ol>
           <div class="row"><button class="primary" data-action="try-example">예시로 계산해 보기</button></div>
         </article>
@@ -215,7 +223,8 @@
               <tr><th>actions</th><td>작용 대상. <code>type</code>은 agonist(작용제)·antagonist(차단제), 세기 <code>c</code>. 또는 <code>e</code>(작용제만), 또는 <code>F, dose, CL, tau</code> + <code>EC50</code>/<code>KB</code></td></tr>
               <tr><th>dose_ratio</th><td>평소 용량의 몇 배인지 (기본 1)</td></tr>
               <tr><th>rules</th><td>효과마다 <code>up</code>, <code>down</code>, <code>k</code>, <code>threshold</code>, <code>source</code></td></tr>
-              <tr><th>source</th><td>모든 값에 출처를 적어요. 가상 약은 <code>"virtual"</code></td></tr>
+              <tr><th>source</th><td>모든 값에 출처를 적어요. 가정값은 <code>"virtual"</code> 또는 <code>"가정: 이유"</code></td></tr>
+              <tr><th>missing</th><td>찾지 못한 값 목록. <code>{"drug": "약", "item": "metabolism.CYP3A의 f", "reason": "이유"}</code></td></tr>
             </table>
           </div>
         </article>
@@ -224,6 +233,59 @@
           <button id="tut-prev">이전</button>
           <button id="tut-next" class="primary">다음</button>
         </div>
+      </div>
+    </section>
+    <!-- 앱 설치 -->
+    <section id="tab-install" class="panel" role="tabpanel" hidden>
+      <div class="card">
+        <h2>휴대폰·패드에 앱으로 설치하기</h2>
+        <p class="hint">앱스토어 없이 홈 화면에 아이콘을 만들어요. 설치하면 주소창 없이 앱처럼 열리고, 한 번 연 뒤에는 인터넷이 없어도 열려요.</p>
+        <p id="install-state" class="status ok" hidden></p>
+        <div class="row">
+          <span class="url-box"><span class="muted">주소</span> <b id="app-url"></b></span>
+          <button id="copy-url">주소 복사</button>
+          <button id="install-btn" class="primary" hidden>지금 앱 설치</button>
+        </div>
+      </div>
+
+      <div class="card device" data-device="iphone">
+        <h2>아이폰 (Safari) <span class="here" hidden>지금 쓰는 기기</span></h2>
+        <ol>
+          <li><b>Safari</b>로 위 주소를 열어요.</li>
+          <li>화면 아래쪽 <b>공유 버튼</b>(네모에 위쪽 화살표)을 눌러요. 안 보이면 주소창 옆 <b>「⋯」</b>를 누르고 <b>「공유」</b>를 눌러요.</li>
+          <li>목록을 아래로 내려 <b>「홈 화면에 추가」</b>를 눌러요.</li>
+          <li>오른쪽 위 <b>「추가」</b>를 누르면 홈 화면에 「상호작용 계산기」 아이콘이 생겨요.</li>
+        </ol>
+      </div>
+
+      <div class="card device" data-device="ipad">
+        <h2>아이패드 (Safari) <span class="here" hidden>지금 쓰는 기기</span></h2>
+        <ol>
+          <li><b>Safari</b>로 위 주소를 열어요.</li>
+          <li>화면 <b>오른쪽 위</b> 주소창 옆의 <b>공유 버튼</b>(네모에 위쪽 화살표)을 눌러요. 안 보이면 <b>「⋯」</b> → <b>「공유」</b>.</li>
+          <li><b>「홈 화면에 추가」</b> → <b>「추가」</b>를 눌러요.</li>
+        </ol>
+        <p class="hint">아이폰·아이패드의 Chrome에서도 주소창 오른쪽 공유 버튼 → 「홈 화면에 추가」로 할 수 있어요(iOS 16.4 이상). 잘 안 되면 Safari로 하세요.</p>
+      </div>
+
+      <div class="card device" data-device="android">
+        <h2>안드로이드 휴대폰·태블릿 (Chrome) <span class="here" hidden>지금 쓰는 기기</span></h2>
+        <ol>
+          <li><b>Chrome</b>으로 위 주소를 열어요.</li>
+          <li>오른쪽 위 <b>「⋮」</b> 메뉴 → <b>「앱 설치」</b> 또는 <b>「홈 화면에 추가」</b>를 눌러요.</li>
+          <li><b>「설치」</b>를 누르면 앱 목록과 홈 화면에 아이콘이 생겨요. 이 화면 위에 「지금 앱 설치」 버튼이 보이면 그걸 눌러도 돼요.</li>
+        </ol>
+        <p class="hint">갤럭시의 <b>삼성 인터넷</b>: 아래쪽 <b>「≡」</b> → <b>「현재 페이지 추가」</b> → <b>「홈 화면」</b>.</p>
+      </div>
+
+      <div class="card">
+        <h2>설치한 뒤에 알아 둘 것</h2>
+        <ul>
+          <li>홈 화면 아이콘으로 열면 주소창 없이 앱처럼 열려요.</li>
+          <li>한 번 열어 둔 뒤에는 인터넷이 없어도 열려요. 인터넷이 되면 새 버전으로 저절로 바뀌어요.</li>
+          <li>입력한 약물 집합은 그 기기 안에만 저장돼요. 휴대폰과 패드끼리, 그리고 아이폰·아이패드에서는 Safari와 홈 화면 앱끼리도 저장 내용이 따로예요.</li>
+          <li>지우려면 아이콘을 길게 눌러 「앱 삭제」 또는 「홈 화면에서 제거」를 눌러요.</li>
+        </ul>
       </div>
     </section>
   </main>

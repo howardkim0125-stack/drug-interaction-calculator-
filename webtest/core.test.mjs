@@ -147,3 +147,75 @@ test("붙여 넣은 글에서 약물 집합 JSON을 꺼낸다", () => {
   assert.deepEqual(core.extractJson(text), { drugs: [], rules: { effects: {} } });
   assert.throws(() => core.extractJson("JSON 없음"), core.DataError);
 });
+
+// ---------------------------------------------------------------- 데이터가 없을 때
+const emptySet = {
+  drugs: [
+    { name: "약1", metabolism: {}, inhibits: {}, induces: {}, actions: {} },
+    { name: "약2", metabolism: {}, inhibits: {}, induces: {}, actions: {} },
+    { name: "약3", metabolism: {}, inhibits: {}, induces: {}, actions: {} },
+  ],
+  rules: { effects: {} },
+  missing: [{ drug: "약1", item: "metabolism", reason: "허가사항에 비율 없음" }, "약2 actions"],
+};
+
+test("값이 모두 비어 있으면 '데이터가 없어서 계산하지 못했다'", () => {
+  const set = core.parseSet(emptySet, ENZYMES);
+  assert.equal(set.missing.length, 2);
+  assert.deepEqual(set.missing[1], { drug: "", item: "약2 actions", reason: "" });
+  const a = core.assessData(set.drugs, set.rules);
+  assert.equal(a.overall, "nodata");
+  assert.equal(a.conc.status, "nodata");
+  assert.equal(a.effect.status, "nodata");
+  assert.ok(a.conc.text.startsWith(core.NO_DATA));
+  assert.ok(a.effect.text.includes("규칙표(rules)에 효과가 없다"));
+  assert.deepEqual(a.values, { cited: 0, assumed: 0, empty: 0 });
+});
+
+test("작용 자료만 있으면 (가)만 데이터 없음", () => {
+  const a = parse({ name: "A", actions: { P: { type: "agonist", c: 0.25, source: "논문 1" } } });
+  const b = parse({ name: "B", actions: { Q: { type: "agonist", c: 0.25, source: "virtual" } } });
+  const rules = core.parseRules({ effects: { Y: { up: ["P", "Q"], k: 4, source: "가정: 근거 없음" } } });
+  const res = core.assessData([a, b], rules);
+  assert.equal(res.overall, "partial");
+  assert.equal(res.conc.status, "nodata");
+  assert.equal(res.effect.status, "ok");
+  assert.deepEqual(res.values, { cited: 1, assumed: 2, empty: 0 });
+});
+
+test("효소 자료가 있지만 겹치지 않으면 '계산했다: 변화 없음'", () => {
+  const a = parse({ name: "A", inhibits: { CYP2D6: { s: 0.5, t: 0, source: "x" } } });
+  const b = parse({ name: "B", metabolism: { CYP3A: { f: 0.7, g: 0, source: "x" } } });
+  const res = core.assessData([a, b], core.parseRules({ effects: {} }));
+  assert.equal(res.conc.status, "none");
+  assert.equal(res.effect.status, "nodata");
+  assert.deepEqual(res.noMetabolism, ["A"]);
+});
+
+test("억제제와 기질이 같은 약 하나뿐이면 (가)는 데이터 없음", () => {
+  const a = parse({ name: "A", metabolism: { CYP3A: { f: 0.5, g: 0, source: "x" } }, inhibits: { CYP3A: { s: 0.5, t: 0, source: "x" } } });
+  const b = parse({ name: "B" });
+  const res = core.assessData([a, b], core.parseRules({ effects: {} }));
+  assert.equal(res.conc.status, "nodata");
+});
+
+test("E2E-1 입력은 자료가 충분하다", () => {
+  const a = parse({ name: "A", inhibits: { CYP3A: { s: 0.6, t: 0, source: "virtual" } },
+    actions: { P: { type: "agonist", e: 0.3, source: "virtual" } } });
+  const b = parse({ name: "B", metabolism: { CYP3A: { f: 0.7, g: 0, source: "virtual" } },
+    actions: { P: { type: "agonist", e: 0.4, source: "virtual" } } });
+  const res = core.assessData([a, b], core.parseRules({ effects: { X: { up: ["P"], source: "virtual" } } }));
+  assert.equal(res.overall, "ok");
+  assert.deepEqual(res.noMetabolism, ["A"]);
+});
+
+test("앱 설치용 파일이 모두 있다", async () => {
+  const { readFile, access } = await import("node:fs/promises");
+  const root = new URL("../docs/", import.meta.url);
+  const sw = await readFile(new URL("sw.js", root), "utf8");
+  const files = JSON.parse(`[${sw.match(/const FILES = \[([\s\S]*?)\];/)[1].trim().replace(/,\s*$/, "")}]`);
+  for (const f of files) if (f !== "./") await access(new URL(f, root));
+  const manifest = JSON.parse(await readFile(new URL("manifest.webmanifest", root), "utf8"));
+  for (const icon of manifest.icons) await access(new URL(icon.src, root));
+  assert.equal(manifest.display, "standalone");
+});

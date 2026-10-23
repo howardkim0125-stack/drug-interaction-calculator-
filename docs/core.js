@@ -899,14 +899,33 @@ export function extractJson(text) {
   throw new DataError("JSON을 찾지 못했다");
 }
 
-// 약물 집합: {"drugs": [...], "rules": {"effects": {...}}} 또는 [약, ...]
+// AI가 찾지 못한 값 목록("missing")을 {drug, item, reason}으로 맞춘다.
+function parseMissing(raw, warnings) {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    warnings.push("'missing'은 목록이어야 한다(무시함)");
+    return [];
+  }
+  const out = [];
+  for (const m of raw) {
+    if (typeof m === "string" && m.trim()) out.push({ drug: "", item: m.trim(), reason: "" });
+    else if (isDict(m)) {
+      const text = (k) => (typeof m[k] === "string" ? m[k].trim() : "");
+      if (text("drug") || text("item") || text("reason")) out.push({ drug: text("drug"), item: text("item"), reason: text("reason") });
+    } else warnings.push(`'missing'의 항목 ${JSON.stringify(m)}를 읽지 못했다(무시함)`);
+  }
+  return out;
+}
+
+// 약물 집합: {"drugs": [...], "rules": {"effects": {...}}, "missing": [...]} 또는 [약, ...]
 export function parseSet(raw, enzymes, fallbackRules = null) {
   const warnings = [];
-  let rawDrugs; let rawRules = null;
+  let rawDrugs; let rawRules = null; let missing = [];
   if (Array.isArray(raw)) rawDrugs = raw;
   else if (isDict(raw)) {
     rawDrugs = raw.drugs;
     rawRules = isDict(raw.rules) ? raw.rules : (isDict(raw.effects) ? { effects: raw.effects } : null);
+    missing = parseMissing(raw.missing, warnings);
   }
   if (!Array.isArray(rawDrugs)) throw new DataError("약 목록(drugs)을 찾을 수 없다");
   const drugs = rawDrugs.map((d) => parseDrug(d, enzymes, warnings));
@@ -923,5 +942,89 @@ export function parseSet(raw, enzymes, fallbackRules = null) {
     usedFallback = true;
     warnings.push("입력에 규칙표(rules)가 없어 기본 예시 규칙표를 썼다. 실제 약이라면 rules도 함께 넣어야 한다");
   } else throw new DataError("규칙표(rules)가 없다");
-  return { drugs, rules, warnings, usedFallback };
+  return { drugs, rules, warnings, usedFallback, missing };
+}
+
+// ---------------------------------------------------------------- 데이터가 충분한지
+
+// 출처 칸으로 값의 종류를 나눈다: 출처 있음 / 가정값(virtual, "가정"으로 시작) / 출처 빈칸
+export function sourceKind(src) {
+  const text = (src || "").trim();
+  if (!text) return "empty";
+  if (/^virtual$/i.test(text) || text.startsWith("가정")) return "assumed";
+  return "cited";
+}
+
+export const NO_DATA = "데이터가 없어서 계산하지 못했다";
+
+// 고른 약과 규칙표로 (가) 평균 농도 변화와 (나) 작용의 겹침을 계산할 자료가 있는지 본다.
+// 계산 식은 바꾸지 않고, 자료가 없어서 r = 1이나 효과 0이 나온 것을 결과처럼 보이지 않게 하려는 것이다.
+export function assessData(drugs, rules) {
+  const known = ruleTargets(rules);
+  const perDrug = drugs.map((d) => ({
+    name: d.name,
+    metabolism: Object.keys(d.metabolism).length,
+    inhibits: Object.keys(d.inhibits).length,
+    induces: Object.keys(d.induces).length,
+    actions: Object.keys(d.actions).length,
+    linked: Object.keys(d.actions).filter((t) => known.has(t)).length,
+  }));
+  const values = { cited: 0, assumed: 0, empty: 0 };
+  for (const d of drugs) {
+    for (const sec of ["metabolism", "inhibits", "induces", "actions"]) {
+      for (const item of Object.values(d[sec])) values[sourceKind(item.source)] += 1;
+    }
+  }
+  for (const eff of Object.values(rules.effects)) values[sourceKind(eff.source)] += 1;
+
+  // (가) 평균 농도 변화
+  const pairs = classify(drugs, rules).concentration;
+  const withMet = perDrug.filter((p) => p.metabolism > 0).map((p) => p.name);
+  const withMod = perDrug.filter((p) => p.inhibits + p.induces > 0).map((p) => p.name);
+  const canMeet = withMod.some((a) => withMet.some((b) => a !== b));
+  const conc = { notes: [] };
+  if (pairs.length) {
+    conc.status = "ok";
+    conc.text = `계산했다: 효소가 겹친 순서쌍 ${pairs.length}개`;
+  } else if (!canMeet) {
+    conc.status = "nodata";
+    const why = [];
+    if (!withMet.length) why.push("분해 효소(metabolism) 자료가 있는 약이 없다");
+    if (!withMod.length) why.push("억제·유도(inhibits·induces) 자료가 있는 약이 없다");
+    if (!why.length) why.push("다른 약을 억제·유도하는 약과, 분해 효소 자료가 있는 약이 같은 약 하나뿐이다");
+    conc.text = `${NO_DATA}: ${why.join(", ")}`;
+  } else {
+    conc.status = "none";
+    conc.text = "계산했다: 입력된 효소가 서로 겹치지 않아 평균 농도 변화가 없다(r = 1)";
+  }
+  const noMet = perDrug.filter((p) => p.metabolism === 0).map((p) => p.name);
+  if (conc.status !== "nodata" && noMet.length) {
+    conc.notes.push(`${noMet.join(", ")}: 분해 효소 자료가 없어 r을 계산하지 못했다(r = 1로 둠)`);
+  }
+
+  // (나) 작용의 겹침
+  const effect = { notes: [] };
+  const ruleCount = Object.values(rules.effects).filter((r) => r.up.length || r.down.length).length;
+  const withAct = perDrug.filter((p) => p.actions > 0).map((p) => p.name);
+  const withLink = perDrug.filter((p) => p.linked > 0).map((p) => p.name);
+  if (!ruleCount) {
+    effect.status = "nodata";
+    effect.text = `${NO_DATA}: 규칙표(rules)에 효과가 없다`;
+  } else if (!withAct.length) {
+    effect.status = "nodata";
+    effect.text = `${NO_DATA}: 작용 대상(actions) 자료가 있는 약이 없다`;
+  } else if (!withLink.length) {
+    effect.status = "nodata";
+    effect.text = `${NO_DATA}: 약의 작용 대상이 규칙표의 어느 효과와도 연결되지 않는다`;
+  } else {
+    effect.status = "ok";
+    effect.text = `계산했다: 작용 대상이 규칙표와 연결된 약 ${withLink.length}개`;
+    const out = perDrug.filter((p) => p.linked === 0).map((p) => p.name);
+    if (out.length) effect.notes.push(`${out.join(", ")}: 규칙표와 연결된 작용 대상 자료가 없어 효과 계산에서 빠졌다`);
+    if (withLink.length === 1) effect.notes.push("효과에 관여하는 약이 하나뿐이라, 같은 대상·같은 효과에서 작용이 겹칠 수 없다");
+  }
+
+  const bad = [conc, effect].filter((x) => x.status === "nodata").length;
+  const overall = bad === 2 ? "nodata" : (bad === 1 ? "partial" : "ok");
+  return { perDrug, values, conc, effect, overall, noMetabolism: noMet };
 }

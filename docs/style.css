@@ -19,6 +19,8 @@
   --warn-line: #d9a21b;
   --err-bg: #fdeceb;
   --err-line: #c93a3a;
+  --ok-bg: #e7f4ea;
+  --ok-line: #2f8f46;
   --radius: 14px;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "D2Coding", monospace;
 }
@@ -45,6 +47,8 @@
     --warn-line: #d9a21b;
     --err-bg: #3d1d1d;
     --err-line: #ef6b6b;
+    --ok-bg: #1b2e20;
+    --ok-line: #5cc27a;
   }
 }
 
@@ -299,3 +303,23 @@ code { font-family: var(--mono); font-size: 0.9em; background: var(--surface-2);
   .card { padding: 14px; }
   .brand h1 { font-size: 1.15rem; }
 }
+
+/* 데이터 상태 */
+.status { border-radius: 12px; padding: 12px 16px; margin: 8px 0 14px; border-left: 5px solid var(--ok-line); background: var(--ok-bg); }
+.status.partial { border-color: var(--warn-line); background: var(--warn-bg); }
+.status.nodata { border-color: var(--err-line); background: var(--err-bg); }
+.status-head { font-weight: 800; font-size: 1.05rem; margin: 0 0 6px; }
+.status-list { margin: 0 0 6px; padding-left: 20px; }
+.status-list > li { margin: 4px 0; }
+.status-list > li.nodata > b { color: var(--err-line); }
+.status details { background: transparent; border: 0; padding: 0; margin: 4px 0 0; }
+.status details > summary { min-height: 36px; }
+.nodata-line { padding: 10px 14px; border-radius: 10px; background: var(--err-bg); font-weight: 700; }
+.none { color: var(--err-line); font-weight: 700; }
+
+/* 앱 설치 */
+.device.current { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.here { font-size: 0.8rem; padding: 2px 10px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+.device ol { padding-left: 22px; }
+.device li { margin: 6px 0; }
+.url-box { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 1px dashed var(--line); border-radius: 10px; overflow-wrap: anywhere; }

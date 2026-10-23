@@ -6,7 +6,7 @@ import { MAKE_PROMPT, READ_PROMPT, RESULT_SLOT } from "./prompts.js";
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
 const STORE_KEY = "dic.input.v1";
-const TABS = ["calc", "prompts", "rules", "tutorial"];
+const TABS = ["calc", "prompts", "rules", "tutorial", "install"];
 
 const state = {
   raw: null,        // 붙여 넣은 JSON
@@ -14,6 +14,7 @@ const state = {
   selected: new Set(),
   drugs: [],        // 고른 약
   result: null,
+  assess: null,     // 데이터가 충분한지
   trace: "",
 };
 
@@ -85,7 +86,11 @@ function table(headers, rows, numericCols = [], wrapCols = []) {
 function showTab(name) {
   if (!TABS.includes(name)) name = "calc";
   for (const t of TABS) $(`#tab-${t}`).hidden = t !== name;
-  $$(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  $$(".tabs button").forEach((b) => {
+    const on = b.dataset.tab === name;
+    b.setAttribute("aria-selected", String(on));
+    if (on) b.scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
   if (location.hash !== `#${name}`) history.replaceState(null, "", `#${name}`);
   window.scrollTo({ top: 0 });
 }
@@ -153,10 +158,11 @@ function compute() {
     showMessages([], warnings);
     return;
   }
-  $("#pick-msg").textContent = `${state.drugs.length}개를 함께 먹는 경우를 계산했어요.`;
+  $("#pick-msg").textContent = `${state.drugs.length}개를 함께 먹는 경우를 골랐어요.`;
   try {
     state.result = core.analyze(state.drugs, set.rules, CONFIG, warnings);
     [state.trace] = core.buildTrace(state.drugs, set.rules, CONFIG, state.result);
+    state.assess = core.assessData(state.drugs, set.rules);
   } catch (err) {
     showMessages([`계산 중 오류: ${err.message}`], warnings);
     $("#result-card").hidden = true;
@@ -170,16 +176,69 @@ function compute() {
 
 const VERDICT_CLASS = { [core.INCREASE]: "up", [core.DECREASE]: "down", [core.INDEPENDENT]: "ind" };
 
+const STATUS_CLASS = { ok: "ok", none: "ok", nodata: "nodata" };
+
+function dataStatusHtml(a) {
+  const v = a.values;
+  const total = v.cited + v.assumed + v.empty;
+  const line = (label, part) => `<li class="${STATUS_CLASS[part.status]}"><b>${label}</b>: ${esc(part.text)}${
+    part.notes.length ? `<ul>${part.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</li>`;
+  const head = {
+    ok: "계산에 필요한 자료가 있어요",
+    partial: "일부는 데이터가 없어서 계산하지 못했어요",
+    nodata: "데이터가 없어서 계산하지 못했어요",
+  }[a.overall];
+  const valueLine = total
+    ? `입력된 값 ${total}개: 출처 있음 ${v.cited}개, 가정값(virtual·가정) ${v.assumed}개, 출처 빈칸 ${v.empty}개`
+    : "입력된 값이 하나도 없어요";
+  const missing = state.set.missing;
+  const missingHtml = missing.length
+    ? `<details><summary>AI가 찾지 못한 값 ${missing.length}개</summary><ul>${missing.map((m) =>
+      `<li>${esc([m.drug, m.item].filter(Boolean).join(" · "))}${m.reason ? ` <span class="muted">(${esc(m.reason)})</span>` : ""}</li>`).join("")}</ul></details>`
+    : "";
+  return `<div class="status ${a.overall}">
+    <p class="status-head">${head}</p>
+    <ul class="status-list">${line("(가) 평균 농도 변화", a.conc)}${line("(나) 작용의 겹침", a.effect)}</ul>
+    <p class="muted">${esc(valueLine)}</p>
+    ${missingHtml}
+  </div>`;
+}
+
+function coverageTable(a) {
+  const cell = (n) => (n ? `${n}개` : '<span class="none">없음</span>');
+  return table(["약", "분해 효소", "억제", "유도", "작용 대상", "규칙표와 연결"], a.perDrug.map((p) => [
+    esc(p.name), cell(p.metabolism), cell(p.inhibits), cell(p.induces), cell(p.actions), cell(p.linked)]));
+}
+
 function renderResult() {
   const res = state.result;
+  const a = state.assess;
   const out = [];
   out.push(`<p>함께 먹는 약: <b>${res.drugs.map(esc).join(", ")}</b></p>`);
+  out.push(dataStatusHtml(a));
+  $("#trace-box").hidden = a.overall === "nodata";
+
+  if (a.overall === "nodata") {
+    out.push('<p class="section-title">약마다 입력된 자료</p>');
+    out.push(coverageTable(a));
+    out.push(`<p class="hint">값을 지어내지 않고 계산을 멈췄어요. 출처가 있는 값을 찾아 넣거나,
+      연습이라면 source를 "virtual"로 적은 가정값을 넣어 보세요.</p>`);
+    $("#result").innerHTML = out.join("");
+    $("#trace").innerHTML = "";
+    return;
+  }
 
   out.push('<p class="section-title">평균 농도 변화 r</p>');
-  out.push(table(["약", "r_간", "r_장", "r", "표시"], res.drugs.map((n) => {
-    const v = res.ratios[n];
-    return [esc(n), f4(v.r_liver), f4(v.r_gut), `<b>${f4(v.r)}</b>`, v.flag ? `<span class="badge ${v.flag.includes("증가") ? "up" : "down"}">${v.flag}</span>` : ""];
-  }), [1, 2, 3]));
+  if (a.conc.status === "nodata") {
+    out.push(`<p class="nodata-line">${esc(a.conc.text)}</p>`);
+  } else {
+    const noMet = new Set(a.noMetabolism);
+    out.push(table(["약", "r_간", "r_장", "r", "표시"], res.drugs.map((n) => {
+      const v = res.ratios[n];
+      if (noMet.has(n)) return [esc(n), "", "", '<span class="none">자료 없음</span>', '<span class="muted">분해 효소 자료 없음</span>'];
+      return [esc(n), f4(v.r_liver), f4(v.r_gut), `<b>${f4(v.r)}</b>`, v.flag ? `<span class="badge ${v.flag.includes("증가") ? "up" : "down"}">${v.flag}</span>` : ""];
+    }), [1, 2, 3]));
+  }
   const flagged = res.drugs.filter((n) => res.ratios[n].flag);
   if (flagged.length) {
     out.push(`<ul class="flags">${flagged.map((n) => `<li>${esc(n)}: r = ${f4(res.ratios[n].r)} → ${res.ratios[n].flag}
@@ -188,7 +247,9 @@ function renderResult() {
 
   const effects = res.effects.filter((e) => e.involved.length);
   out.push('<p class="section-title">효과별 결과</p>');
-  if (!effects.length) {
+  if (a.effect.status === "nodata") {
+    out.push(`<p class="nodata-line">${esc(a.effect.text)}</p>`);
+  } else if (!effects.length) {
     out.push('<p class="hint">고른 약이 작용하는 효과가 규칙표에 없어요. 규칙표 탭과 경고를 확인하세요.</p>');
   } else {
     out.push(table(["효과", "관련 약", "B₀", "B_r", "B_full", "R 또는 d", "판정", "원인", "발현"], effects.map((e) => {
@@ -200,7 +261,13 @@ function renderResult() {
     }), [2, 3, 4, 5], [1, 7, 8]));
   }
   const untouched = res.effects.filter((e) => !e.involved.length).map((e) => e.effect);
-  if (untouched.length) out.push(`<p class="hint">고른 약이 작용하지 않는 효과: ${untouched.map(esc).join(", ")}</p>`);
+  if (untouched.length && a.effect.status !== "nodata") {
+    out.push(`<p class="hint">고른 약이 작용하지 않는 효과: ${untouched.map(esc).join(", ")}</p>`);
+  }
+  if (a.conc.status === "nodata" && a.effect.status !== "nodata") {
+    out.push('<p class="hint">(가) 평균 농도 변화는 자료가 없어 반영하지 못했어요(모든 r = 1로 계산). 그래서 B_r = B₀이고 원인 r은 나올 수 없어요.</p>');
+  }
+  out.push('<details><summary>약마다 입력된 자료</summary>' + coverageTable(a) + "</details>");
 
   const cls = res.classification;
   const typeKo = { agonist: "작용제", antagonist: "차단제" };
@@ -246,11 +313,33 @@ function renderMarkdown(md) {
 }
 
 // AI 해석용 결과 글
+function statusText(a) {
+  const v = a.values;
+  const lines = [`(가) 평균 농도 변화: ${a.conc.text}`, ...a.conc.notes.map((n) => `  - ${n}`),
+    `(나) 작용의 겹침: ${a.effect.text}`, ...a.effect.notes.map((n) => `  - ${n}`),
+    `입력된 값: 출처 있음 ${v.cited}개, 가정값(virtual·가정) ${v.assumed}개, 출처 빈칸 ${v.empty}개`];
+  const missing = state.set.missing;
+  if (missing.length) {
+    lines.push("AI가 찾지 못한 값:");
+    for (const m of missing) lines.push(`  - ${[m.drug, m.item].filter(Boolean).join(" · ")}${m.reason ? ` (${m.reason})` : ""}`);
+  }
+  lines.push("", core.formatTable(["약", "분해 효소", "억제", "유도", "작용 대상", "규칙표와 연결"],
+    a.perDrug.map((p) => [p.name, String(p.metabolism), String(p.inhibits), String(p.induces), String(p.actions), String(p.linked)]),
+    "약마다 입력된 자료 개수"));
+  return lines.join("\n");
+}
+
 function resultText() {
   const res = state.result;
+  const a = state.assess;
   const names = new Set(res.drugs);
   const rawDrugs = (Array.isArray(state.raw) ? state.raw : state.raw.drugs).filter((d) => d && names.has(d.name));
   const rawRules = state.set.usedFallback ? DEMO_SET.rules : (state.raw.rules || { effects: state.raw.effects });
+  const input = JSON.stringify({ drugs: rawDrugs, rules: rawRules }, null, 2);
+  if (a.overall === "nodata") {
+    return ["[입력한 약물 집합]", input, "", "[데이터 상태]", `${core.NO_DATA}.`, statusText(a), "",
+      "[결과 요약]", `함께 먹는 약: ${res.drugs.join(", ")}`, `${core.NO_DATA}. 계산 결과 없음.`, "", core.DISCLAIMER].join("\n");
+  }
   const rTable = core.formatTable(["약", "r_간", "r_장", "r", "평균 농도 변화"],
     res.drugs.map((n) => [n, res.ratios[n].r_liver, res.ratios[n].r_gut, res.ratios[n].r, res.ratios[n].flag || ""]),
     "평균 농도 변화 r");
@@ -262,16 +351,21 @@ function resultText() {
       e.rule.threshold === null ? "-" : g6(e.rule.threshold),
       e.manifest === null ? "-" : (e.manifest ? "발현" : "아님"), e.manifest_kind]),
     "효과별 결과");
+  const noMet = new Set(a.noMetabolism);
   return [
     "[입력한 약물 집합]",
-    JSON.stringify({ drugs: rawDrugs, rules: rawRules }, null, 2),
+    input,
+    "",
+    "[데이터 상태]",
+    statusText(a),
     "",
     "[결과 요약]",
     `함께 먹는 약: ${res.drugs.join(", ")}`,
     "",
-    rTable,
+    a.conc.status === "nodata" ? `[평균 농도 변화 r]\n${a.conc.text}`
+      : rTable + (noMet.size ? `\n(분해 효소 자료가 없어 r을 계산하지 못한 약: ${[...noMet].join(", ")}. 위 표의 1.0000은 계산값이 아님)` : ""),
     "",
-    eTable,
+    a.effect.status === "nodata" ? `[효과별 결과]\n${a.effect.text}` : eTable,
     "",
     "[계산 과정]",
     state.trace.trim(),
@@ -356,6 +450,53 @@ function setupTutorial() {
   showStep(0);
 }
 
+// ---------------------------------------------------------------- 앱 설치
+
+function detectDevice() {
+  const ua = navigator.userAgent;
+  if (/Android/i.test(ua)) return "android";
+  if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ipad";
+  if (/iPhone|iPod/.test(ua)) return "iphone";
+  return null;
+}
+
+let installEvent = null;
+function setupInstall() {
+  const url = `${location.origin}${location.pathname}`;
+  $("#app-url").textContent = url;
+  $("#copy-url").addEventListener("click", () => copyText(url, "주소를"));
+  const device = detectDevice();
+  $$(".device").forEach((card) => {
+    const here = card.dataset.device === device;
+    card.classList.toggle("current", here);
+    card.querySelector(".here").hidden = !here;
+  });
+  if (device) {
+    const card = $(`.device[data-device="${device}"]`);
+    card.parentNode.insertBefore(card, $$(".device")[0]);
+  }
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (standalone) {
+    $("#install-state").hidden = false;
+    $("#install-state").textContent = "이미 앱으로 설치해서 열고 있어요.";
+  }
+  window.addEventListener("beforeinstallprompt", (ev) => {
+    ev.preventDefault();
+    installEvent = ev;
+    $("#install-btn").hidden = false;
+  });
+  $("#install-btn").addEventListener("click", async () => {
+    if (!installEvent) return;
+    installEvent.prompt();
+    await installEvent.userChoice;
+    installEvent = null;
+    $("#install-btn").hidden = true;
+  });
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => { /* 오프라인 기능이 없어도 앱은 쓸 수 있다 */ });
+  }
+}
+
 // ---------------------------------------------------------------- 시작
 
 function loadExample() {
@@ -412,6 +553,7 @@ function init() {
 
   $("#enzymes").innerHTML = ENZYMES.map((e) => `<span>${esc(e)}</span>`).join("");
   setupTutorial();
+  setupInstall();
   renderRules();
 
   const saved = storeGet(STORE_KEY);
