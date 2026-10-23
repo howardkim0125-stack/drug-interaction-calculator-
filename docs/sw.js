@@ -1,7 +1,7 @@
 // 오프라인용: 한 번 연 뒤에는 인터넷 없이도 열린다. 인터넷이 되면 항상 새 파일을 먼저 받는다.
-const CACHE = "dic-v1";
+const CACHE = "dic-v2";
 const FILES = [
-  "./", "index.html", "style.css", "app.js", "core.js", "data.js", "prompts.js",
+  "./", "index.html", "style.css", "app.js", "core.js", "data.js", "prompts.js", "summary.js",
   "manifest.webmanifest", "icon.svg", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png",
 ];
 

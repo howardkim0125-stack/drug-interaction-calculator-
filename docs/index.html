@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="상호작용 계산기">
-  <meta name="description" content="고등학생 수학 탐구용 약물 상호작용 계산기. 서버 없이 기기 안에서만 계산한다.">
+  <meta name="description" content="약 이름만 넣으면 AI와 함께 약물 상호작용을 수학 모델로 계산하는 탐구용 계산기. 계산은 기기 안에서만 한다.">
+  <meta name="theme-color" content="#0f766e">
   <title>약물 상호작용 계산기</title>
-  <meta name="theme-color" content="#2a78d6">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -17,52 +17,85 @@
 <body>
   <header class="top">
     <div class="brand">
-      <h1>약물 상호작용 계산기</h1>
-      <p class="sub">수학 탐구 모델 · 계산은 이 기기 안에서만 하고 입력은 어디에도 보내지 않아요</p>
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="16" fill="currentColor"/>
+        <g transform="rotate(-45 32 32)">
+          <rect x="12" y="23" width="40" height="18" rx="9" fill="#ffffff"/>
+          <path d="M32 23h11a9 9 0 0 1 0 18H32z" fill="#99f6e4"/>
+        </g>
+        <circle cx="47" cy="47" r="7" fill="#fbbf24" stroke="#ffffff" stroke-width="3"/>
+      </svg>
+      <div>
+        <h1>약물 상호작용 계산기</h1>
+        <p class="sub">함께 먹는 약끼리의 영향을 수학 모델로 계산해요 · 입력은 이 기기 밖으로 나가지 않아요</p>
+      </div>
     </div>
     <nav class="tabs" role="tablist" aria-label="화면">
-      <button role="tab" data-tab="calc" aria-selected="true">계산</button>
-      <button role="tab" data-tab="prompts" aria-selected="false">AI 프롬프트</button>
+      <button role="tab" data-tab="calc" aria-selected="true">상호작용 확인</button>
       <button role="tab" data-tab="rules" aria-selected="false">규칙표</button>
-      <button role="tab" data-tab="tutorial" aria-selected="false">튜토리얼</button>
+      <button role="tab" data-tab="tutorial" aria-selected="false">사용법</button>
       <button role="tab" data-tab="install" aria-selected="false">앱 설치</button>
     </nav>
   </header>
 
   <main>
-    <!-- 계산 -->
+    <!-- 상호작용 확인 -->
     <section id="tab-calc" class="panel" role="tabpanel">
-      <div class="card">
-        <h2><span class="num">1</span>약물 집합 붙여 넣기</h2>
-        <p class="hint">AI 프롬프트 탭의 「입력 만들기 프롬프트」로 AI가 만든 JSON을 그대로 붙여 넣으세요.
-          설명 문장이 섞여 있어도 JSON 부분만 찾아 읽어요. 값이 비어 있으면 숫자를 만들지 않고 「데이터가 없어서 계산하지 못했다」고 알려 줘요.
-          처음이라면 <button class="link" data-goto="tutorial">튜토리얼</button>을, 휴대폰·패드에 깔려면 <button class="link" data-goto="install">앱 설치</button>를 보세요.</p>
+      <ol class="stepper" aria-label="진행 단계">
+        <li data-step="1"><span>1</span>약 이름</li>
+        <li data-step="2"><span>2</span>AI 답 붙여 넣기</li>
+        <li data-step="3"><span>3</span>결과</li>
+      </ol>
+
+      <div class="card step-card" id="step1">
+        <h2><span class="num">1</span>어떤 약을 함께 먹나요?</h2>
+        <textarea id="names" class="names" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off"
+          aria-label="약 이름" placeholder="예: 타이레놀, 이부프로펜, 세티리진"></textarea>
+        <div id="name-chips" class="pills" aria-live="polite"></div>
+        <p class="hint">쉼표나 줄바꿈으로 나눠 적어요. <b>용량은 안 적어도 돼요</b> — 허가사항의 성인 1회 권장 용량을 기준으로 계산해요.
+          다른 용량이면 이름 옆에 적어요(예: 이부프로펜 400mg).</p>
+        <div class="row">
+          <button id="copy-make" class="primary" disabled>AI에게 물어볼 글 복사</button>
+          <button id="example" class="ghost">예시로 바로 해 보기</button>
+        </div>
+        <p class="hint ai-links">복사한 뒤 AI 채팅에 붙여 넣으세요:
+          <a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a> ·
+          <a href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a> ·
+          <a href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a></p>
+        <details class="plain">
+          <summary>복사되는 글 미리 보기</summary>
+          <textarea id="make-preview" class="prompt" readonly aria-label="AI에게 물어볼 글"></textarea>
+        </details>
+      </div>
+
+      <div class="card step-card" id="step2">
+        <h2><span class="num">2</span>AI 답을 붙여 넣으세요</h2>
+        <p class="hint">AI 답 전체를 그대로 붙여 넣어도 돼요. 설명 문장 사이에서 JSON 부분만 찾아 읽어요.</p>
         <textarea id="input" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
-          aria-label="약물 집합 JSON" placeholder='{ "drugs": [ ... ], "rules": { "effects": { ... } } }'></textarea>
+          aria-label="AI 답(약물 집합 JSON)" placeholder="여기에 AI 답을 붙여 넣기"></textarea>
         <div class="row">
           <button id="run" class="primary">계산하기</button>
-          <button id="example">예시 넣기</button>
+          <button id="paste">붙여넣기</button>
           <label class="btn" for="file">파일 열기</label>
           <input id="file" type="file" accept=".json,.txt,application/json,text/plain" class="visually-hidden">
-          <button id="clear">지우기</button>
+          <button id="clear" class="ghost">지우기</button>
         </div>
         <div id="messages" aria-live="polite"></div>
       </div>
 
-      <div class="card" id="pick-card" hidden>
-        <h2><span class="num">2</span>함께 먹을 약 고르기 <span class="muted">(2개 이상)</span></h2>
-        <div id="pick" class="chips"></div>
-        <div class="row">
-          <button id="pick-all">모두 선택</button>
-          <button id="pick-none">모두 해제</button>
-        </div>
-        <p id="pick-msg" class="hint"></p>
-      </div>
-
-      <div class="card" id="result-card" hidden>
+      <div class="card step-card" id="result-card" hidden>
         <h2><span class="num">3</span>결과</h2>
+        <div class="pick-box">
+          <p class="pick-label">함께 먹는 약 <span class="muted">(눌러서 빼거나 넣기, 2개 이상)</span></p>
+          <div id="pick" class="pills toggle"></div>
+          <p id="pick-msg" class="hint"></p>
+        </div>
         <div id="result"></div>
-        <details id="trace-box">
+        <details id="detail-box" class="plain">
+          <summary>숫자로 자세히 보기 <span class="muted">(r, B₀, B_full, R, 판정, 원인, 발현)</span></summary>
+          <div id="detail"></div>
+        </details>
+        <details id="trace-box" class="plain">
           <summary>계산 과정 보기 <span class="muted">(식에 숫자를 넣은 모습 = 결과)</span></summary>
           <div class="row">
             <button id="copy-trace">계산 과정 복사</button>
@@ -70,39 +103,12 @@
           </div>
           <div id="trace" class="md"></div>
         </details>
-        <div class="row">
-          <button id="copy-read" class="primary">해석 프롬프트 + 결과 복사</button>
+        <div class="row actions">
+          <button id="copy-read" class="primary">AI에게 결과 해석 맡기기 (복사)</button>
           <button id="copy-result">결과만 복사</button>
+          <button id="print">인쇄·PDF 저장</button>
         </div>
         <p class="disclaimer">수학 탐구 모델의 결과이며 실제 복약 판단이 아니다.</p>
-      </div>
-    </section>
-
-    <!-- AI 프롬프트 -->
-    <section id="tab-prompts" class="panel" role="tabpanel" hidden>
-      <div class="card">
-        <h2>AI와 함께 쓰는 방법</h2>
-        <ol class="flow">
-          <li><b>입력 만들기 프롬프트</b>를 복사해 AI(ChatGPT, Claude 등) 채팅에 붙여 넣고, [조사할 약] 칸에 약 이름과 용량을 적어요.</li>
-          <li>AI가 준 JSON을 <b>계산</b> 탭에 붙여 넣고 「계산하기」를 눌러요. 숫자마다 적힌 출처(source)는 직접 확인하세요.</li>
-          <li>결과 아래 「해석 프롬프트 + 결과 복사」를 눌러 AI에 붙여 넣으면 결과를 쉬운 말로 설명받을 수 있어요.</li>
-        </ol>
-        <p class="hint">이 앱은 AI를 직접 부르지 않아요. 복사와 붙여 넣기는 직접 해요.</p>
-      </div>
-      <div class="card">
-        <h2>① 입력 만들기 프롬프트</h2>
-        <p class="hint">약 이름을 알려 주면 AI가 출처를 붙인 약물 집합(JSON)을 만들어요. 출처를 찾지 못한 값은 빼도록 되어 있어요.</p>
-        <textarea id="make-prompt" class="prompt" readonly aria-label="입력 만들기 프롬프트"></textarea>
-        <div class="row"><button id="copy-make" class="primary">입력 만들기 프롬프트 복사</button></div>
-      </div>
-      <div class="card">
-        <h2>② 결과 해석 프롬프트</h2>
-        <p class="hint">계산 탭의 「해석 프롬프트 + 결과 복사」를 쓰면 맨 아래 칸에 결과가 자동으로 들어가요. 여기서 복사하면 결과 칸은 비어 있어요.</p>
-        <textarea id="read-prompt" class="prompt" readonly aria-label="결과 해석 프롬프트"></textarea>
-        <div class="row">
-          <button id="copy-read-empty">해석 프롬프트만 복사</button>
-          <button id="copy-read-2" class="primary" disabled>지금 결과를 넣어서 복사</button>
-        </div>
       </div>
     </section>
 
@@ -110,8 +116,8 @@
     <section id="tab-rules" class="panel" role="tabpanel" hidden>
       <div class="card">
         <h2>규칙표 <span id="rules-origin" class="muted"></span></h2>
-        <p class="hint">효과마다 그 효과를 올리는 대상(up), 내리는 대상(down), 대상끼리의 관계 k, 발현 기준 threshold를 적은 표예요.
-          약물 집합에 <code>rules</code>를 넣으면 그 표를 써요.</p>
+        <p class="hint">효과마다 그 효과를 올리는 작용 대상(up), 내리는 대상(down), 대상끼리의 관계 k, 나타나는 기준 threshold를 적은 표예요.
+          AI 답에 <code>rules</code>가 있으면 그 표를 써요.</p>
         <div id="rules-table"></div>
       </div>
       <div class="card">
@@ -120,111 +126,100 @@
       </div>
       <div class="card">
         <h2>쓸 수 있는 효소 이름</h2>
-        <p id="enzymes" class="chips static"></p>
+        <p id="enzymes" class="pills static"></p>
       </div>
     </section>
 
-    <!-- 튜토리얼 -->
+    <!-- 사용법 -->
     <section id="tab-tutorial" class="panel" role="tabpanel" hidden>
       <div class="card tutorial">
         <div class="tut-head">
-          <h2>튜토리얼</h2>
+          <h2>사용법</h2>
           <span id="tut-count" class="muted"></span>
         </div>
         <ol id="tut-dots" class="dots" aria-label="단계"></ol>
 
-        <article class="step" data-title="이 계산기는">
-          <h3>이 계산기는 무엇인가요?</h3>
-          <p>여러 경구약을 함께 먹을 때 약끼리 주는 영향을 수학 식으로 계산해요.</p>
+        <article class="step" data-title="무엇인가요">
+          <h3>무엇을 계산하나요?</h3>
+          <p>여러 약을 함께 먹을 때 약끼리 주는 영향을 수학 식으로 계산해요.</p>
           <ul>
-            <li><b>(가) 평균 농도 변화</b>: 한 약이 다른 약을 분해하는 효소(CYP)를 막거나(억제) 늘리면(유도) 그 약의 평균 농도가 <i>r</i>배가 돼요.</li>
-            <li><b>(나) 작용의 겹침</b>: 같은 대상에 붙는 약끼리, 또는 같은 효과로 이어지는 서로 다른 대상끼리 작용이 합쳐져요.</li>
+            <li><b>혈중 농도 변화</b>: 한 약이 다른 약을 분해하는 효소(CYP)를 막거나 늘리면, 그 약의 평균 농도가 몇 배로 바뀌어요.</li>
+            <li><b>효과의 겹침</b>: 같은 곳에 작용하거나 같은 효과로 이어지는 약끼리 효과가 합쳐져요.</li>
           </ul>
           <p>계산은 이 기기 안에서만 하고, 입력한 내용은 어디에도 보내지 않아요.</p>
           <p class="disclaimer">수학 탐구 모델의 결과이며 실제 복약 판단이 아니다.</p>
         </article>
 
-        <article class="step" data-title="전체 흐름" hidden>
-          <h3>전체 흐름</h3>
-          <div class="pipeline">
-            <div class="node">약 이름·용량</div><div class="arrow">AI + 입력 만들기 프롬프트</div>
-            <div class="node">약물 집합(JSON)</div><div class="arrow">이 앱: 계산하기</div>
-            <div class="node">결과 + 계산 과정</div><div class="arrow">AI + 해석 프롬프트</div>
-            <div class="node">쉬운 말 해석</div>
-          </div>
-          <p>AI는 입력을 만들고 결과를 설명하는 데만 쓰고, <b>계산은 항상 이 앱이 정해진 식으로</b> 해요.</p>
+        <article class="step" data-title="약 이름 넣기" hidden>
+          <h3>1. 약 이름 넣고 AI에게 묻기</h3>
+          <ol>
+            <li>「상호작용 확인」 첫 칸에 약 이름을 적어요. 용량은 안 적어도 돼요(성인 권장 용량 기준).</li>
+            <li>「AI에게 물어볼 글 복사」를 눌러요.</li>
+            <li>ChatGPT·Claude·Gemini 같은 AI 채팅에 붙여 넣고 보내요.</li>
+          </ol>
+          <p class="note">AI는 숫자를 지어내지 않고, 출처를 찾은 값만 넣도록 지시받아요. 그래도 AI가 준 숫자는 <code>source</code>의 문서에서 직접 확인하세요.</p>
         </article>
 
-        <article class="step" data-title="약물 집합 만들기" hidden>
-          <h3>약물 집합 만들기</h3>
+        <article class="step" data-title="붙여 넣고 계산" hidden>
+          <h3>2. AI 답 붙여 넣고 계산하기</h3>
           <ol>
-            <li><button class="link" data-goto="prompts">AI 프롬프트</button> 탭에서 「입력 만들기 프롬프트 복사」를 눌러요.</li>
-            <li>AI 채팅에 붙여 넣고 [조사할 약] 칸에 약 이름, 1회 용량, 복용 간격을 적어 보내요.</li>
-            <li>AI가 준 JSON과 「빠진 값」 목록을 확인해요.</li>
+            <li>AI 답 전체를 복사해서 두 번째 칸에 붙여 넣어요(「붙여넣기」 버튼도 돼요).</li>
+            <li>「계산하기」를 눌러요.</li>
+            <li><span class="tag err">빨간 상자</span>는 입력 오류예요. AI에게 오류 문장을 보여 주고 고쳐 달라고 하면 돼요.</li>
           </ol>
-          <p>약 이름만 정했다고 계산할 값이 생기지는 않아요. 한 약이 어떤 효소로 분해되고, 다른 약이 그 효소를 막거나 늘린다는 자료가 있어야 계산할 수 있어요.
-            AI가 출처를 찾지 못한 값은 JSON의 <code>missing</code> 목록에 적히고, 계산기는 그 부분을 「데이터 없음」으로 보여 줘요.</p>
-          <p class="note"><b>꼭 확인하기</b>: AI가 준 숫자는 <code>source</code>에 적힌 문서에서 직접 확인하세요. 출처가 없는 숫자는 쓰지 마세요.
-            연습만 하려면 계산 탭의 「예시 넣기」로 가상 약을 쓰면 돼요.</p>
-        </article>
-
-        <article class="step" data-title="계산하기" hidden>
-          <h3>계산하기</h3>
-          <ol>
-            <li>계산 탭의 입력 칸에 JSON을 붙여 넣거나 「파일 열기」로 .json 파일을 골라요.</li>
-            <li>「계산하기」를 누르면 약 목록이 나와요. 함께 먹을 약을 <b>2개 이상</b> 골라요. 고를 때마다 바로 다시 계산해요.</li>
-            <li><span class="tag err">빨간 상자</span>는 오류예요. 입력을 고쳐야 계산할 수 있어요.
-              <span class="tag warn">노란 상자</span>는 경고예요. 계산은 됐지만 출처 빈칸, 규칙표에 없는 대상 같은 것을 확인하세요.</li>
-            <li>결과 맨 위 <b>데이터 상태</b> 상자를 먼저 봐요. 초록은 계산에 필요한 자료가 있음, 노랑은 일부를 데이터가 없어 계산하지 못함,
-              빨강은 <b>데이터가 없어서 계산하지 못함</b>이에요. 자료가 없는 부분은 r = 1이나 0 같은 숫자를 결과처럼 보여 주지 않아요.</li>
-          </ol>
-          <div class="row"><button class="primary" data-action="try-example">예시로 계산해 보기</button></div>
+          <div class="row"><button class="primary" data-action="try-example">예시로 해 보기</button></div>
         </article>
 
         <article class="step" data-title="결과 읽기" hidden>
-          <h3>결과 읽기</h3>
+          <h3>3. 결과 읽기</h3>
+          <ul>
+            <li>맨 위 요약: <b>눈여겨볼 상호작용 몇 건</b>인지, 또는 뚜렷한 상호작용이 없는지 알려 줘요.</li>
+            <li><b>데이터 상태</b>: 초록은 계산함, 노랑은 일부 데이터 없음, 빨강은 <b>데이터가 없어서 계산하지 못함</b>. 값이 없는 부분은 숫자를 지어내지 않아요.</li>
+            <li><b>혈중 농도 카드</b>: 「가상약B 혈중 농도 ×2.87」처럼 몇 배가 되는지와 원인 효소를 보여 줘요.</li>
+            <li><b>효과 카드</b>: 효과가 <span class="tag up">세짐</span> <span class="tag down">약해짐</span> <span class="tag same">거의 그대로</span> 중 무엇인지와 원인을 보여 줘요.</li>
+            <li>약 칩을 눌러 빼거나 넣으면 바로 다시 계산해요.</li>
+          </ul>
+        </article>
+
+        <article class="step" data-title="숫자와 용어" hidden>
+          <h3>숫자로 자세히 보기의 용어</h3>
           <div class="table-wrap">
             <table class="terms">
-              <tr><th>r</th><td>함께 먹었을 때 그 약의 평균 농도가 몇 배인지 (r = r_간 × r_장). <span data-cfg="flag"></span>이면 「평균 농도 변화」로 표시</td></tr>
-              <tr><th>B₀</th><td>상호작용이 없다고 볼 때의 기준값 (모든 r = 1, k = 1)</td></tr>
-              <tr><th>B_r</th><td>평균 농도 변화(r)만 반영한 값</td></tr>
-              <tr><th>B_full</th><td>실제 계산값 (r과 규칙표의 k 모두 반영)</td></tr>
+              <tr><th>r</th><td>혈중 농도 배수. 함께 먹었을 때 그 약의 평균 농도가 몇 배인지 (r = r_간 × r_장). <span data-cfg="flag"></span>이면 크게 바뀐 것으로 표시</td></tr>
+              <tr><th>B₀</th><td>상호작용이 없다고 볼 때의 예상 효과 (모든 r = 1, k = 1)</td></tr>
+              <tr><th>B_r</th><td>혈중 농도 변화(r)만 반영한 효과</td></tr>
+              <tr><th>B_full</th><td>함께 먹을 때 계산된 효과 (r과 규칙표의 k 모두 반영)</td></tr>
               <tr><th>R, d</th><td><span data-cfg="ratio"></span></td></tr>
-              <tr><th>판정</th><td>증강 · 감소 · 독립</td></tr>
+              <tr><th>판정</th><td>증강(세짐) · 감소(약해짐) · 독립(거의 그대로)</td></tr>
               <tr><th>원인</th><td>r 기여 = B_r − B₀, k 기여 = B_full − B_r. <span data-cfg="cause"></span></td></tr>
               <tr><th>발현</th><td>threshold가 있는 효과만. 약 하나씩은 기준 미만인데 함께 먹으면 기준 이상이면 발현이고, 「더하기만으로」와 「상호작용 때문에」를 나눠 보여요</td></tr>
             </table>
           </div>
         </article>
 
-        <article class="step" data-title="계산 과정" hidden>
-          <h3>계산 과정 보기</h3>
-          <p>결과 아래 「계산 과정 보기」를 펼치면 모든 중간값이 식 순서대로 나와요.</p>
-          <p class="mono">0. 입력 변환 → 1. 분류 → 2. 효소별 a_간, a_장 → 3. r_간, r_장, r → 4. 대상별 C_ag, C_ant, E_P → 5. 효과별 cᵢ, c_합, 묶음 작용 → 6. B₀, B_r, B_full, 판정 → 7. 발현</p>
-          <p>각 줄은 <span class="mono">r_간 = 1 ÷ (0.7 × 0.4 + 0.3) = 1.724</span>처럼 식에 숫자를 넣은 모습이에요. 「마크다운 파일로 저장」으로 보고서에 붙일 수 있어요.</p>
-        </article>
-
-        <article class="step" data-title="AI로 해석하기" hidden>
-          <h3>AI로 해석하기</h3>
+        <article class="step" data-title="AI 해석" hidden>
+          <h3>4. AI에게 결과 해석 맡기기</h3>
           <ol>
-            <li>결과 아래 「해석 프롬프트 + 결과 복사」를 눌러요. 입력, 결과 요약, 계산 과정이 프롬프트 안에 함께 들어가요.</li>
+            <li>결과 아래 「AI에게 결과 해석 맡기기 (복사)」를 눌러요. 입력, 데이터 상태, 결과, 계산 과정이 함께 복사돼요.</li>
             <li>AI 채팅에 붙여 넣어요.</li>
           </ol>
           <p class="note">AI 답에 계산 결과에 없는 새 숫자나 「먹어도 된다·끊어라」 같은 복약 조언이 나오면 믿지 마세요. 실제 복용은 의사·약사와 상의해야 해요.</p>
+          <p>계산 과정은 「계산 과정 보기」에서 식 순서대로 볼 수 있고, 보고서용으로 마크다운 저장이나 「인쇄·PDF 저장」을 할 수 있어요.</p>
         </article>
 
         <article class="step" data-title="입력 형식" hidden>
-          <h3>입력 형식 한눈에 보기</h3>
+          <h3>입력 형식 (직접 고치고 싶을 때)</h3>
           <div class="table-wrap">
             <table class="terms">
               <tr><th>metabolism</th><td>분해 효소. <code>f</code> 간에서 그 효소가 맡는 비율, <code>g</code> 장에서 분해되는 비율 (0~1, 각각 합 ≤ 1)</td></tr>
               <tr><th>inhibits</th><td>억제 효소. <code>s</code> 간, <code>t</code> 장에서 막는 정도 (0 이상 1 미만). 또는 <code>Ki</code>, <code>conc_liver</code>, <code>conc_gut</code></td></tr>
               <tr><th>induces</th><td>유도 효소. <code>u</code>: 효소 작용이 (1 + u)배</td></tr>
               <tr><th>actions</th><td>작용 대상. <code>type</code>은 agonist(작용제)·antagonist(차단제), 세기 <code>c</code>. 또는 <code>e</code>(작용제만), 또는 <code>F, dose, CL, tau</code> + <code>EC50</code>/<code>KB</code></td></tr>
-              <tr><th>dose_ratio</th><td>평소 용량의 몇 배인지 (기본 1)</td></tr>
+              <tr><th>dose_ratio</th><td>기준 용량(권장 용량)의 몇 배인지 (기본 1)</td></tr>
               <tr><th>rules</th><td>효과마다 <code>up</code>, <code>down</code>, <code>k</code>, <code>threshold</code>, <code>source</code></td></tr>
-              <tr><th>source</th><td>모든 값에 출처를 적어요. 가정값은 <code>"virtual"</code> 또는 <code>"가정: 이유"</code></td></tr>
-              <tr><th>missing</th><td>찾지 못한 값 목록. <code>{"drug": "약", "item": "metabolism.CYP3A의 f", "reason": "이유"}</code></td></tr>
+              <tr><th>source</th><td>모든 값에 출처. 가정값은 <code>"virtual"</code> 또는 <code>"가정: 이유"</code></td></tr>
+              <tr><th>dose_basis</th><td>기준으로 삼은 용량과 출처. <code>{"drug", "dose", "source"}</code></td></tr>
+              <tr><th>missing</th><td>찾지 못한 값. <code>{"drug", "item", "reason"}</code></td></tr>
             </table>
           </div>
         </article>
@@ -234,7 +229,22 @@
           <button id="tut-next" class="primary">다음</button>
         </div>
       </div>
+
+      <div class="card">
+        <h2>AI 프롬프트 원문</h2>
+        <details class="plain">
+          <summary>입력 만들기 프롬프트 (약 이름 칸이 비어 있는 원본)</summary>
+          <textarea id="make-prompt" class="prompt" readonly aria-label="입력 만들기 프롬프트"></textarea>
+          <div class="row"><button id="copy-make-empty">원본 복사</button></div>
+        </details>
+        <details class="plain">
+          <summary>결과 해석 프롬프트 (결과 칸이 비어 있는 원본)</summary>
+          <textarea id="read-prompt" class="prompt" readonly aria-label="결과 해석 프롬프트"></textarea>
+          <div class="row"><button id="copy-read-empty">원본 복사</button></div>
+        </details>
+      </div>
     </section>
+
     <!-- 앱 설치 -->
     <section id="tab-install" class="panel" role="tabpanel" hidden>
       <div class="card">
@@ -283,7 +293,7 @@
         <ul>
           <li>홈 화면 아이콘으로 열면 주소창 없이 앱처럼 열려요.</li>
           <li>한 번 열어 둔 뒤에는 인터넷이 없어도 열려요. 인터넷이 되면 새 버전으로 저절로 바뀌어요.</li>
-          <li>입력한 약물 집합은 그 기기 안에만 저장돼요. 휴대폰과 패드끼리, 그리고 아이폰·아이패드에서는 Safari와 홈 화면 앱끼리도 저장 내용이 따로예요.</li>
+          <li>입력한 내용은 그 기기 안에만 저장돼요. 휴대폰과 패드끼리, 그리고 아이폰·아이패드에서는 Safari와 홈 화면 앱끼리도 저장 내용이 따로예요.</li>
           <li>지우려면 아이콘을 길게 눌러 「앱 삭제」 또는 「홈 화면에서 제거」를 눌러요.</li>
         </ul>
       </div>

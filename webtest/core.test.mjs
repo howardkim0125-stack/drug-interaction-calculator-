@@ -219,3 +219,52 @@ test("앱 설치용 파일이 모두 있다", async () => {
   for (const icon of manifest.icons) await access(new URL(icon.src, root));
   assert.equal(manifest.display, "standalone");
 });
+
+// ---------------------------------------------------------------- 약 이름만 넣는 흐름, 쉬운 말 요약
+import { makePrompt, parseNames } from "../docs/prompts.js";
+import { buildSummary } from "../docs/summary.js";
+import { DEMO_SET } from "../docs/data.js";
+
+test("약 이름 칸을 약 목록으로 나눈다", () => {
+  assert.deepEqual(parseNames("타이레놀, 이부프로펜\n세티리진; 타이레놀"), ["타이레놀", "이부프로펜", "세티리진"]);
+  assert.deepEqual(parseNames("1. 와파린\n- 이부프로펜 400mg"), ["와파린", "이부프로펜 400mg"]);
+  assert.deepEqual(parseNames("  ,, "), []);
+});
+
+test("약 이름만 넣은 프롬프트: 이름과 권장 용량 기준이 들어간다", () => {
+  const p = makePrompt(["타이레놀", "이부프로펜"]);
+  assert.ok(p.includes("- 타이레놀\n- 이부프로펜"));
+  assert.ok(p.includes("성인 1회 권장 용량") && p.includes("dose_ratio = 1"));
+  assert.ok(p.includes('"dose_basis"') && p.includes('"missing"'));
+  assert.ok(!p.includes("{{"));
+});
+
+test("dose_basis를 읽고, AI가 남긴 끝 쉼표도 읽는다", () => {
+  const text = '```json\n{"drugs": [{"name": "A",},], "rules": {"effects": {}}, "dose_basis": [{"drug": "A", "dose": "성인 1회 500 mg", "source": "허가사항"}]}\n```';
+  const set = core.parseSet(core.extractJson(text), ENZYMES);
+  assert.deepEqual(set.doseBasis, [{ drug: "A", dose: "성인 1회 500 mg", source: "허가사항" }]);
+});
+
+test("쉬운 말 요약: 예시 약", () => {
+  const set = core.parseSet(DEMO_SET, ENZYMES);
+  const res = core.analyze(set.drugs, set.rules, CONFIG);
+  const a = core.assessData(set.drugs, set.rules);
+  const s = buildSummary(res, a, CONFIG);
+  assert.equal(s.headline.tone, "alert");
+  const b = s.conc.find((c) => c.drug === "가상약B");
+  assert.ok(b.title.includes("×2.87") && b.big && b.tone === "up");
+  assert.ok(b.text.includes("CYP3A 억제(가상약A)"));
+  const x = s.effects.find((e) => e.effect === "효과X");
+  assert.equal(x.plain, "세짐");
+  assert.ok(x.lines.some((l) => l.includes("상호작용 때문에")));
+  const y = s.effects.find((e) => e.effect === "효과Y");
+  assert.ok(y.lines[0].includes("−0.09") && y.lines[0].includes("방향이 반대로"));
+});
+
+test("쉬운 말 요약: 데이터가 없으면 숫자 없이 '계산하지 못했어요'", () => {
+  const set = core.parseSet({ drugs: [{ name: "A" }, { name: "B" }], rules: { effects: {} } }, ENZYMES);
+  const res = core.analyze(set.drugs, set.rules, CONFIG);
+  const s = buildSummary(res, core.assessData(set.drugs, set.rules), CONFIG);
+  assert.equal(s.headline.tone, "nodata");
+  assert.equal(s.conc.length + s.effects.length, 0);
+});

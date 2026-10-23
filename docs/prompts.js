@@ -6,13 +6,30 @@ const j = CONFIG.judgement;
 const flag = CONFIG.flag;
 
 export const RESULT_SLOT = "{{계산 결과}}";
+const NAMES_SLOT = "{{약 이름}}";
 
-export const MAKE_PROMPT = `너는 고등학생 수학 탐구용 '약물 상호작용 계산기'에 넣을 입력(약물 집합)을 만드는 도우미다.
+// 약 이름 입력 칸의 글을 약 이름 목록으로 나눈다(쉼표, 줄바꿈, 세미콜론, 가운뎃점).
+export function parseNames(text) {
+  const seen = new Set();
+  const out = [];
+  for (const part of String(text).split(/[,，;\n、·]+/)) {
+    const name = part.trim().replace(/^[-•*\d.)\s]+/, "").trim();
+    if (name && !seen.has(name)) { seen.add(name); out.push(name); }
+  }
+  return out;
+}
+
+const MAKE_TEMPLATE = `너는 고등학생 수학 탐구용 '약물 상호작용 계산기'에 넣을 입력(약물 집합)을 만드는 도우미다.
 이 계산기는 수학 모델이며 실제 복약 판단에 쓰지 않는다.
 
 [조사할 약]
-- 약 이름, 1회 용량, 복용 간격을 여기에 적는다.
-- (예: 약 ○○ 10 mg 하루 1번, 약 △△ 200 mg 12시간마다)
+${NAMES_SLOT}
+
+[용량 기준]
+- 약 이름 옆에 용량이 적혀 있지 않으면, 그 약의 허가사항(라벨)에 있는 성인 1회 권장 용량과 권장 복용 간격으로 먹는다고 본다. 이 용량이 dose_ratio = 1이다.
+- 약 이름 옆에 용량이 적혀 있으면 그 용량을 기준으로 한다.
+- 기준으로 삼은 용량과 그 출처를 "dose_basis"에 약마다 적는다.
+- 상품명이면 주성분 이름을 함께 적는다(예: "타이레놀(아세트아미노펜)").
 
 [출력]
 아래 [형식]의 JSON 하나를 \`\`\`json 코드 블록 안에 출력하라. 찾지 못한 값은 JSON 안의 "missing" 목록에 적는다.
@@ -24,11 +41,11 @@ export const MAKE_PROMPT = `너는 고등학생 수학 탐구용 '약물 상호�
 
 [반드시 지킬 것]
 1. 숫자를 지어내지 마라. 실측값만 넣고, 출처를 찾지 못한 값은 그 원소를 통째로 빼고 "missing"에 적어라.
-2. 약 이름만 있고 값이 하나도 없어도 괜찮다. 그때는 metabolism, inhibits, induces, actions를 비워 두고 "missing"에 무엇이 없는지 적어라. 계산기가 "데이터가 없어서 계산하지 못했다"고 알려 준다.
+2. 값을 하나도 찾지 못해도 괜찮다. 그때는 metabolism, inhibits, induces, actions를 비워 두고 "missing"에 무엇이 없는지 적어라. 계산기가 "데이터가 없어서 계산하지 못했다"고 알려 준다.
 3. 이 계산기의 f, g, s, t, c는 허가사항에 그대로 나오지 않는 경우가 많다. 그대로 대응되는 값(예: FDA 표의 기질 약물의 해당 효소 기여 비율 → f)만 쓰고, 계산이나 추정이 필요한 값은 넣지 말고 "missing"에 근거 자료(예: "보고된 AUC 비 3.1배, 출처")를 적어라.
-4. 약이 여러 개라고 상호작용이 저절로 생기지 않는다. 한 약이 어떤 효소로 분해되고, 다른 약이 그 효소를 억제·유도한다는 자료가 둘 다 있어야 (가) 평균 농도 변화를 계산할 수 있다.
+4. 약이 여러 개라고 상호작용이 저절로 생기지 않는다. 한 약이 어떤 효소로 분해되고, 다른 약이 그 효소를 억제·유도한다는 자료가 둘 다 있어야 평균 농도 변화를 계산할 수 있다.
 5. 효소 이름은 ${ENZYMES.join(", ")} 중에서만 쓴다(예: CYP3A4·CYP3A5는 CYP3A로 적는다).
-6. 값이 0인 원소는 적지 않는다.
+6. 값이 0인 원소는 적지 않는다. 숫자는 따옴표 없이 숫자로 적는다.
 7. drugs의 actions에 쓴 대상 이름과 rules의 up·down에 쓴 대상 이름은 글자까지 똑같아야 한다.
 8. 효과(rules)의 up·down 대상은 실제 약리 작용에 맞게 연결하고 source를 적는다. k, threshold는 근거가 없으면 1, null로 둔다.
 9. JSON 안에는 주석을 넣지 않는다.
@@ -50,6 +67,9 @@ export const MAKE_PROMPT = `너는 고등학생 수학 탐구용 '약물 상호�
       "효과 이름": { "up": ["대상"], "down": [], "k": 1, "threshold": null, "source": "출처" }
     }
   },
+  "dose_basis": [
+    { "drug": "약 이름", "dose": "성인 1회 ○ mg, ○시간마다", "source": "허가사항 등 출처" }
+  ],
   "missing": [
     { "drug": "약 이름", "item": "metabolism.CYP3A의 f", "reason": "허가사항에 비율이 없음" }
   ]
@@ -59,11 +79,21 @@ export const MAKE_PROMPT = `너는 고등학생 수학 탐구용 '약물 상호�
 - metabolism(분해 효소): f = 몸에서 약이 없어지는 전체 중 간의 그 효소가 맡는 비율(0~1), g = 장을 지나면서 그 효소에 분해되는 비율(0~1). 한 약의 f 합 ≤ 1, g 합 ≤ 1.
 - inhibits(억제 효소): s = 간에서 막는 정도, t = 장에서 막는 정도(0 ≤ s, t < 1). s, t 대신 Ki와 conc_liver, conc_gut(같은 단위)를 적어도 된다. 그러면 계산기가 x = 농도 ÷ Ki, s = x ÷ (1 + x)로 바꾼다.
 - induces(유도 효소): u = 효소 작용이 (1 + u)배가 된다는 뜻(u ≥ 0).
-- actions(작용 대상): type은 "agonist"(작용제) 또는 "antagonist"(차단제). c = 평소 용량에서 평균 농도 ÷ 반작용 농도.
-  c 대신 e(평소 효과 크기 0~1, 작용제만), 또는 F, dose, CL, tau와 EC50(작용제)·KB(차단제)를 적어도 된다(C = F × dose ÷ (CL × tau), 단위를 서로 맞출 것).
-- dose_ratio: 평소 용량의 몇 배를 먹는지(기본 1).
+- actions(작용 대상): type은 "agonist"(작용제) 또는 "antagonist"(차단제). c = 기준 용량에서 평균 농도 ÷ 반작용 농도.
+  c 대신 e(기준 용량에서의 효과 크기 0~1, 작용제만), 또는 F, dose, CL, tau와 EC50(작용제)·KB(차단제)를 적어도 된다(C = F × dose ÷ (CL × tau), 단위를 서로 맞출 것).
+- dose_ratio: 기준 용량의 몇 배를 먹는지(권장 용량이면 1).
 - rules.effects: 효과마다 그 효과를 올리는 대상(up), 내리는 대상(down), 대상끼리의 관계 k(0 = 같은 대상처럼 더함, 1 = 서로 따로 작용, 1보다 크면 서로 도움, 0~1이면 일부 겹침, 근거가 없으면 1), 발현 기준 threshold(근거가 없으면 null).
 `;
+
+// 약 이름을 넣은 입력 만들기 프롬프트. 이름이 없으면 사용자가 채울 자리를 남긴다.
+export function makePrompt(names = []) {
+  const list = names.length
+    ? names.map((n) => `- ${n}`).join("\n")
+    : "- (여기에 약 이름을 한 줄에 하나씩 적는다. 용량은 안 적어도 된다)";
+  return MAKE_TEMPLATE.replace(NAMES_SLOT, list);
+}
+
+export const MAKE_PROMPT = makePrompt();
 
 export const READ_PROMPT = `아래는 고등학생 수학 탐구용 '약물 상호작용 계산기'의 계산 결과다. 다음 규칙을 지켜 해석해 줘.
 
@@ -75,11 +105,12 @@ export const READ_PROMPT = `아래는 고등학생 수학 탐구용 '약물 상�
 5. 고등학생이 이해할 수 있는 쉬운 말로, 식의 뜻을 함께 설명해라.
 
 [용어]
-- r: 함께 먹었을 때 그 약의 평균 농도가 몇 배가 되는지. r = r_간 × r_장. r ≥ ${flag.r_high} 또는 r ≤ ${flag.r_low}이면 '평균 농도 변화'로 표시된다.
+- r(혈중 농도 배수): 함께 먹었을 때 그 약의 평균 농도가 몇 배가 되는지. r = r_간 × r_장. r ≥ ${flag.r_high} 또는 r ≤ ${flag.r_low}이면 '평균 농도 변화'로 표시된다.
+- 기준 용량: 따로 적지 않으면 허가사항의 성인 1회 권장 용량([용량 기준] 참고).
 - E = c ÷ (1 + c): 작용 세기 c를 0~1 사이의 효과로 바꾸는 식.
-- B₀: 상호작용이 없다고 볼 때의 기준값(r = 1, k = 1). B_r: 평균 농도 변화(r)만 반영한 값. B_full: 실제 계산값(r과 규칙표의 k 모두 반영).
-- 판정: |B₀| ≥ ${j.b0_small}이면 R = B_full ÷ B₀로 보고 R > ${j.ratio_up}이면 증강, R < ${j.ratio_down}이면 감소, 그 사이면 독립. |B₀| < ${j.b0_small}이면 d = (B_full − B₀) × (B₀의 부호)로 보고 |d| < ${j.diff_small}이면 독립.
-- 원인: r 기여 = B_r − B₀(평균 농도 변화 때문), k 기여 = B_full − B_r(대상끼리 서로 돕거나 겹쳐서). |기여| ≥ ${j.cause_min}인 것을 원인으로 적는다.
+- B₀(상호작용이 없을 때의 예상 효과): r = 1, k = 1로 둔 값. B_r: 평균 농도 변화(r)만 반영한 값. B_full(함께 먹을 때 계산된 효과): r과 규칙표의 k 모두 반영.
+- 판정: |B₀| ≥ ${j.b0_small}이면 R = B_full ÷ B₀로 보고 R > ${j.ratio_up}이면 증강(세짐), R < ${j.ratio_down}이면 감소(약해짐), 그 사이면 독립(거의 그대로). |B₀| < ${j.b0_small}이면 d = (B_full − B₀) × (B₀의 부호)로 보고 |d| < ${j.diff_small}이면 독립.
+- 원인: r 기여 = B_r − B₀(혈중 농도 변화 때문), k 기여 = B_full − B_r(작용끼리 서로 돕거나 겹쳐서). |기여| ≥ ${j.cause_min}인 것을 원인으로 적는다.
 - 발현: threshold가 있는 효과에서, 약 하나씩은 기준 미만인데 함께 먹으면 기준 이상이 되는지. '더하기만으로 발현'과 '상호작용 때문에 발현'을 구분한다.
 
 [해석 순서]

@@ -892,11 +892,14 @@ export function extractJson(text) {
   const start = trimmed.search(/[[{]/);
   const end = Math.max(trimmed.lastIndexOf("}"), trimmed.lastIndexOf("]"));
   if (start >= 0 && end > start) {
-    try { return JSON.parse(trimmed.slice(start, end + 1)); } catch (err) {
-      throw new DataError(`JSON 형식 오류: ${err.message}`);
+    const body = trimmed.slice(start, end + 1);
+    try { return JSON.parse(body); } catch (err) {
+      // AI가 자주 남기는 끝 쉼표({"a": 1,})만 고쳐서 한 번 더 읽어 본다
+      try { return JSON.parse(body.replace(/,(\s*[}\]])/g, "$1")); } catch { /* 아래 오류로 */ }
+      throw new DataError(`JSON 형식 오류: ${err.message}. AI 답의 코드 블록을 처음부터 끝까지 빠짐없이 복사했는지 확인하세요`);
     }
   }
-  throw new DataError("JSON을 찾지 못했다");
+  throw new DataError("JSON을 찾지 못했다. AI 답의 ```json 코드 블록을 통째로 붙여 넣으세요");
 }
 
 // AI가 찾지 못한 값 목록("missing")을 {drug, item, reason}으로 맞춘다.
@@ -917,15 +920,32 @@ function parseMissing(raw, warnings) {
   return out;
 }
 
-// 약물 집합: {"drugs": [...], "rules": {"effects": {...}}, "missing": [...]} 또는 [약, ...]
+// 기준 용량 목록("dose_basis")을 {drug, dose, source}로 맞춘다.
+function parseDoseBasis(raw, warnings) {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    warnings.push("'dose_basis'는 목록이어야 한다(무시함)");
+    return [];
+  }
+  const out = [];
+  for (const m of raw) {
+    if (!isDict(m)) { warnings.push(`'dose_basis'의 항목 ${JSON.stringify(m)}를 읽지 못했다(무시함)`); continue; }
+    const text = (k) => (typeof m[k] === "string" ? m[k].trim() : (typeof m[k] === "number" ? String(m[k]) : ""));
+    if (text("drug") || text("dose")) out.push({ drug: text("drug"), dose: text("dose"), source: text("source") });
+  }
+  return out;
+}
+
+// 약물 집합: {"drugs": [...], "rules": {"effects": {...}}, "dose_basis": [...], "missing": [...]} 또는 [약, ...]
 export function parseSet(raw, enzymes, fallbackRules = null) {
   const warnings = [];
-  let rawDrugs; let rawRules = null; let missing = [];
+  let rawDrugs; let rawRules = null; let missing = []; let doseBasis = [];
   if (Array.isArray(raw)) rawDrugs = raw;
   else if (isDict(raw)) {
     rawDrugs = raw.drugs;
     rawRules = isDict(raw.rules) ? raw.rules : (isDict(raw.effects) ? { effects: raw.effects } : null);
     missing = parseMissing(raw.missing, warnings);
+    doseBasis = parseDoseBasis(raw.dose_basis, warnings);
   }
   if (!Array.isArray(rawDrugs)) throw new DataError("약 목록(drugs)을 찾을 수 없다");
   const drugs = rawDrugs.map((d) => parseDrug(d, enzymes, warnings));
@@ -942,7 +962,7 @@ export function parseSet(raw, enzymes, fallbackRules = null) {
     usedFallback = true;
     warnings.push("입력에 규칙표(rules)가 없어 기본 예시 규칙표를 썼다. 실제 약이라면 rules도 함께 넣어야 한다");
   } else throw new DataError("규칙표(rules)가 없다");
-  return { drugs, rules, warnings, usedFallback, missing };
+  return { drugs, rules, warnings, usedFallback, missing, doseBasis };
 }
 
 // ---------------------------------------------------------------- 데이터가 충분한지
