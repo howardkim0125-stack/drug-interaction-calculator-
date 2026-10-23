@@ -297,3 +297,12 @@ test("추정값은 따로 센다", () => {
   assert.equal(res.values.estimated, 2);
   assert.equal(res.conc.status, "ok");
 });
+
+test("결과 해석 프롬프트: 전문 해석·일반인용 해설·최종 요약 세 부분만", async () => {
+  const { READ_PROMPT, RESULT_SLOT } = await import("../docs/prompts.js");
+  const heads = ["## 1. 전문 해석", "## 2. 일반인용 해설", "## 3. 최종 요약"];
+  const pos = heads.map((h) => READ_PROMPT.indexOf(h));
+  assert.ok(pos.every((p) => p > 0) && pos[0] < pos[1] && pos[1] < pos[2]);
+  assert.ok(READ_PROMPT.includes("세 부분만") && READ_PROMPT.includes("출력하지 않는다"));
+  assert.ok(READ_PROMPT.includes(core.DISCLAIMER) && READ_PROMPT.trim().endsWith(RESULT_SLOT));
+});
