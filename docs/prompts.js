@@ -51,7 +51,7 @@ const STRICT_RULES = `[값의 세 종류]
 - 미확인값: 근거를 찾지 못한 숫자. 넣지 말고 "missing"에 적는다.
 
 [반드시 지킬 것]
-1. 숫자를 지어내지 마라. 실측값만 넣고, 출처를 찾지 못한 값은 그 원소를 통째로 빼고 "missing"에 적어라.
+1. 숫자를 지어내지 마라. 실측값만 넣고, 출처를 찾지 못한 값은 그 원소를 통째로 빼고 "missing"에 적어라. 단, 장(소장) 값 g, t는 아래 [장(소장) 값 g, t 정하는 법]을 따른다(f는 찾았는데 g를 모른다고 원소를 빼지 않는다).
 2. 값을 하나도 찾지 못해도 괜찮다. 그때는 metabolism, inhibits, induces, actions를 비워 두고 "missing"에 무엇이 없는지 적어라. 계산기가 "데이터가 없어서 계산하지 못했다"고 알려 준다.
 3. 이 계산기의 f, g, s, t, c는 허가사항에 그대로 나오지 않는 경우가 많다. 그대로 대응되는 값(예: 라벨의 "fraction metabolized by CYP3A" → f)과 아래 [바로 바꿀 수 있는 식]으로 계산되는 값만 쓰고, 그 밖에 추정이 필요한 값은 넣지 말고 "missing"에 근거 자료(예: "보고된 AUC 비 3.1배, 출처")를 적어라.`;
 
@@ -69,6 +69,7 @@ const GUESS_RULES = `[추측 모드: 켜짐]
 1. 실측값이 있으면 실측값을 쓰고, 없을 때만 추정한다. 근거 문장이 없는데 추정하지 마라(그건 지어내기다).
 2. 추정은 아래 기준표의 값만 쓴다. 기준표에 없는 상황이면 추정하지 말고 "missing"에 적는다.
 3. 추정값도 "missing"에 "추정함: 무엇을, 왜"라고 한 줄씩 남긴다.
+4. 원소 안의 칸은 추정할 때도 빼거나 null로 쓰지 않는다([칸 쓰는 법] 참고).
 
 [추정 기준표]
 - f (간의 그 효소가 맡는 비율): 근거 문장 "거의 전부/대부분(almost exclusively, predominantly)" → 0.9, "주로(primarily, mainly, major)" → 0.8, "상당 부분/여러 경로 중 하나(significant, partly)" → 0.5, "일부/소량(minor, to a lesser extent)" → 0.2.
@@ -96,7 +97,7 @@ ${NAMES_SLOT}
 ${sourcesText()}
 
 [바로 바꿀 수 있는 식] (확인된 숫자에서 계산한 값은 실측값으로 보고, source에 식을 함께 적는다)
-- 강한 억제제와 함께 먹었을 때 기질의 AUC 비 X → 그 효소의 f ≈ 1 − 1/X
+- 강한 억제제와 함께 먹었을 때 기질의 AUC 비 X → 그 효소의 f ≈ 1 − 1/X (억제가 거의 완전하고 장 대사가 작다고 볼 때의 어림)
 - 억제제의 Ki와 혈중 농도 → s, t 대신 Ki, conc_liver, conc_gut로 적는다
 - 작용 대상의 EC50(또는 KB)과 평균 혈중 농도 → c = 평균 농도 ÷ EC50 (또는 F, dose, CL, tau와 EC50을 그대로 적는다)
 
@@ -108,10 +109,33 @@ const MAKE_TAIL = `
 [모든 경우에 지킬 것]
 - 약이 여러 개라고 상호작용이 저절로 생기지 않는다. 한 약이 어떤 효소로 분해되고, 다른 약이 그 효소를 억제·유도한다는 자료가 둘 다 있어야 평균 농도 변화를 계산할 수 있다.
 - 효소 이름은 ${ENZYMES.join(", ")} 중에서만 쓴다(예: CYP3A4·CYP3A5는 CYP3A로 적는다).
-- 값이 0인 원소는 적지 않는다. 숫자는 따옴표 없이 숫자로 적는다.
+- 이 목록에 없는 경로(UGT·황산 포합 같은 다른 효소, CYP2E1, 콩팥으로 그대로 배설 등)는 metabolism에 적지 않는다. 그 몫은 1 − (f의 합)으로 계산에 저절로 들어간다.
+  예: 대부분 포합으로 없어지고 CYP1A2가 10%만 맡으면 metabolism에는 "CYP1A2"(f = 0.1)만 적는다.
+- 약 이름(name)은 서로 달라야 한다.
 - drugs의 actions에 쓴 대상 이름과 rules의 up·down에 쓴 대상 이름은 글자까지 똑같아야 한다.
 - 효과(rules)의 up·down 대상은 실제 약리 작용에 맞게 연결하고 source를 적는다. k, threshold는 근거가 없으면 1, null로 둔다.
 - JSON 안에는 주석을 넣지 않는다.
+
+[칸 쓰는 법] (지키지 않으면 계산기가 오류를 낸다)
+- "원소"는 효소나 작용 대상 하나에 붙은 칸 묶음이다. 예: "CYP3A": { "f": 0.7, "g": 0.5, "source": "…" }
+- 원소 안의 칸은 빼거나 null로 쓰지 않는다. 값이 0이면 숫자 0으로 쓴다(예: "g": 0). null은 rules의 k, threshold와 dose_ratio에만 쓸 수 있다.
+- 원소의 값이 모두 0일 때만(f와 g가 모두 0, s와 t가 모두 0, u = 0, c = 0) 그 원소를 통째로 뺀다.
+- 값을 몰라서 비워야 하면 null로 채우지 말고 원소를 통째로 빼고 "missing"에 적는다(g, t는 아래 예외).
+- 숫자는 따옴표 없이 쓴다("0.7"이 아니라 0.7).
+- 원소마다 꼭 있어야 하는 칸:
+  · metabolism: f, g, source
+  · inhibits: s, t, source (또는 Ki, conc_liver, conc_gut, source)
+  · induces: u, source
+  · actions: type, source와 세기 하나(c, 또는 e, 또는 F·dose·CL·tau와 EC50·KB)
+  · rules의 효과: up, down(없으면 []), k, threshold, source
+- 범위: 0 ≤ f, g ≤ 1이고 한 약의 f 합과 g 합은 각각 1 이하 / 0 ≤ s, t < 1(1은 안 된다) / u ≥ 0 / c ≥ 0 / 0 ≤ e < 1(e는 작용제만) / k ≥ 0 / threshold는 0보다 크거나 null.
+- 한 원소의 값들이 서로 다른 문서에서 왔으면 source에 함께 적는다(예: "f: DailyMed 12.3 / g: 논문 ○○").
+
+[장(소장) 값 g, t 정하는 법]
+- 장에서 약을 많이 분해하는 효소는 주로 CYP3A다. CYP3A가 아닌 효소는 g = 0으로 쓴다.
+- CYP3A인데 장 대사 자료가 없으면 g = 0으로 쓰고, "missing"에 "g 자료 없음 → 0으로 둠"이라고 적는다.
+{{T_RULE}}
+- g나 t를 0으로 두면 장에서의 상호작용은 계산에서 빠지고 간에서의 상호작용만 계산된다.
 
 [형식]
 {
@@ -119,8 +143,8 @@ const MAKE_TAIL = `
     {
       "name": "약 이름",
       "dose_ratio": 1,
-      "metabolism": { "효소": { "f": 숫자, "g": 숫자, "source": "출처" } },
-      "inhibits":   { "효소": { "s": 숫자, "t": 숫자, "source": "출처" } },
+      "metabolism": { "효소": { "f": 숫자, "g": 숫자(장 대사 없으면 0), "source": "출처" } },
+      "inhibits":   { "효소": { "s": 숫자, "t": 숫자(자료 없으면 0), "source": "출처" } },
       "induces":    { "효소": { "u": 숫자, "source": "출처" } },
       "actions":    { "대상": { "type": "agonist 또는 antagonist", "c": 숫자, "source": "출처" } }
     }
@@ -153,7 +177,10 @@ export function makePrompt(names = [], { guess = false } = {}) {
   const list = names.length
     ? names.map((n) => `- ${n}`).join("\n")
     : "- (여기에 약 이름을 한 줄에 하나씩 적는다. 용량은 안 적어도 된다)";
-  return `${MAKE_HEAD.replace(NAMES_SLOT, list)}\n${guess ? GUESS_RULES : STRICT_RULES}\n${MAKE_TAIL}`;
+  const tRule = guess
+    ? '- 억제제의 t(장에서 막는 정도) 자료가 없으면 [추정 기준표]대로 t = s로 쓰고, source에 "추정: t 자료 없음 → t = s"를 덧붙인다. Ki 방식이면 conc_gut 자료가 없을 때 conc_gut = conc_liver로 쓰고 같은 방식으로 적는다.'
+    : '- 억제제의 t(장에서 막는 정도) 자료가 없으면 t = 0으로 쓰고 "missing"에 "t 자료 없음 → 0으로 둠"이라고 적는다. Ki 방식이면 conc_gut 자료가 없을 때 0으로 쓴다.';
+  return `${MAKE_HEAD.replace(NAMES_SLOT, list)}\n${guess ? GUESS_RULES : STRICT_RULES}\n${MAKE_TAIL.replace("{{T_RULE}}", tRule)}`;
 }
 
 export const MAKE_PROMPT = makePrompt();

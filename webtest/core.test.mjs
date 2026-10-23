@@ -306,3 +306,29 @@ test("결과 해석 프롬프트: 전문 해석·일반인용 해설·최종 요
   assert.ok(READ_PROMPT.includes("세 부분만") && READ_PROMPT.includes("출력하지 않는다"));
   assert.ok(READ_PROMPT.includes(core.DISCLAIMER) && READ_PROMPT.trim().endsWith(RESULT_SLOT));
 });
+
+test("프롬프트: 0과 null 규칙이 계산기와 맞는다", () => {
+  for (const guess of [false, true]) {
+    const p = makePrompt(["아세트아미노펜", "와파린"], { guess });
+    assert.ok(!p.includes("값이 0인 원소는 적지 않는다"));
+    assert.ok(p.includes("값이 0이면 숫자 0으로 쓴다") && p.includes("null은 rules의 k, threshold와 dose_ratio에만"));
+    assert.ok(p.includes("[장(소장) 값 g, t 정하는 법]") && p.includes("g 자료 없음 → 0으로 둠"));
+    assert.ok(p.includes("UGT") && p.includes("1 − (f의 합)"));
+    assert.ok(p.includes("0 ≤ s, t < 1(1은 안 된다)"));
+    assert.ok(!p.includes("{{"));
+    assert.ok(guess ? p.includes("t = s로 쓰고") : p.includes("t 자료 없음 → 0으로 둠"));
+  }
+  // 프롬프트 규칙대로 쓴 답(g = 0, t = 0, missing에 기록)은 오류 없이 읽힌다
+  const answer = {
+    drugs: [
+      { name: "와파린", metabolism: { CYP2C9: { f: 0.8, g: 0, source: "DailyMed 12.3" } } },
+      { name: "플루코나졸", inhibits: { CYP2C9: { s: 0.6, t: 0, source: "논문" } } },
+    ],
+    rules: { effects: { 출혈: { up: ["X"], down: [], k: null, threshold: null, source: "라벨" } } },
+    missing: [{ drug: "플루코나졸", item: "inhibits.CYP2C9의 t", reason: "t 자료 없음 → 0으로 둠" }],
+  };
+  const set = core.parseSet(answer, ENZYMES);
+  assert.equal(set.drugs[0].metabolism.CYP2C9.g, 0);
+  assert.equal(set.rules.effects.출혈.k, 1);
+  assert.equal(set.warnings.length, 0);
+});
