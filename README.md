@@ -12,7 +12,7 @@ pip install -r requirements.txt
 
 | 명령 | 하는 일 | 결과 |
 |---|---|---|
-| `python -m pytest` | 테스트 전체(T1~T15, E2E-1~3 등) | 화면 |
+| `python -m pytest` | 테스트 전체(T1~T15, E2E-1~3, 웹앱 일치 검사 등) | 화면 |
 | `python run_demo.py` | 예시 가상 약 4개 함께 계산 | `out/demo_*` |
 | `python run_demo.py 가상약A 가상약B` | 고른 약만 계산 | `out/demo_*` |
 | `python run_demo.py 가상약A 가상약B --trace` | 계산 과정을 식 순서대로 출력 | `out/demo_trace.md` |
@@ -25,6 +25,17 @@ pip install -r requirements.txt
 | `python run_eval.py --all` | 위 평가 네 가지 모두 | 위 파일 전부 |
 | `python figures.py` | 보고서용 그래프 7개(200dpi) | `out/figures/` |
 | `python -m real.compare data/내쌍.csv` | 실제 약 쌍 보정·검증 비교 | `out/real_compare.csv` |
+
+## 웹앱 (아이패드·브라우저)
+
+- 주소(GitHub Pages를 켠 뒤): https://howardkim0125-stack.github.io/drug-interaction-calculator-/
+- 파일은 `docs/`에 있다. 서버나 AI API 없이 브라우저 안에서만 계산하고, 계산 식은 파이썬과 같다.
+- 약물 집합(JSON)을 붙여 넣으면 결과(r, B₀, B_full, R, 판정, 원인, 발현)와 계산 과정이 나온다.
+  AI 프롬프트 탭에 입력 만들기·결과 해석 프롬프트가 있고, 튜토리얼 탭은 원할 때만 연다.
+- 내 컴퓨터에서 열기: `python -m http.server -d docs` 후 http://localhost:8000
+- `data/`나 `config.json`을 바꾸면 `python web_build.py`로 `docs/data.js`를 다시 만든다.
+- 웹앱 검사: `node --test webtest/core.test.mjs` (T1~T15, E2E-1~3). Node.js가 있으면 `python -m pytest`가
+  파이썬과 웹앱의 결과·계산 과정이 똑같은지도 함께 검사한다.
 
 ## 채울 파일
 
