@@ -169,7 +169,7 @@ test("값이 모두 비어 있으면 '데이터가 없어서 계산하지 못했
   assert.equal(a.effect.status, "nodata");
   assert.ok(a.conc.text.startsWith(core.NO_DATA));
   assert.ok(a.effect.text.includes("규칙표(rules)에 효과가 없다"));
-  assert.deepEqual(a.values, { cited: 0, assumed: 0, empty: 0 });
+  assert.deepEqual(a.values, { cited: 0, estimated: 0, assumed: 0, empty: 0 });
 });
 
 test("작용 자료만 있으면 (가)만 데이터 없음", () => {
@@ -180,7 +180,7 @@ test("작용 자료만 있으면 (가)만 데이터 없음", () => {
   assert.equal(res.overall, "partial");
   assert.equal(res.conc.status, "nodata");
   assert.equal(res.effect.status, "ok");
-  assert.deepEqual(res.values, { cited: 1, assumed: 2, empty: 0 });
+  assert.deepEqual(res.values, { cited: 1, estimated: 0, assumed: 2, empty: 0 });
 });
 
 test("효소 자료가 있지만 겹치지 않으면 '계산했다: 변화 없음'", () => {
@@ -267,4 +267,33 @@ test("쉬운 말 요약: 데이터가 없으면 숫자 없이 '계산하지 못�
   const s = buildSummary(res, core.assessData(set.drugs, set.rules), CONFIG);
   assert.equal(s.headline.tone, "nodata");
   assert.equal(s.conc.length + s.effects.length, 0);
+});
+
+// ---------------------------------------------------------------- 자료 출처와 추측 모드
+import { SOURCES } from "../docs/prompts.js";
+
+test("자료 출처 목록이 프롬프트에 들어간다", () => {
+  assert.ok(SOURCES.length >= 8);
+  const p = makePrompt(["와파린"]);
+  for (const s of SOURCES) assert.ok(p.includes(s.url), s.url);
+  assert.ok(p.includes("dailymed.nlm.nih.gov") && p.includes("nedrug.mfds.go.kr"));
+});
+
+test("추측 모드: 켜면 추정 기준표가 들어가고, 끄면 없다", () => {
+  const off = makePrompt(["와파린", "플루코나졸"]);
+  const on = makePrompt(["와파린", "플루코나졸"], { guess: true });
+  assert.ok(!off.includes("[추정 기준표]") && off.includes("숫자를 지어내지 마라"));
+  assert.ok(on.includes("[추측 모드: 켜짐]") && on.includes("[추정 기준표]") && on.includes('"추정: "'));
+  assert.ok(on.includes("근거 문장이 없는데 추정하지 마라"));
+});
+
+test("추정값은 따로 센다", () => {
+  assert.equal(core.sourceKind("추정: DailyMed 12.3 'primarily CYP3A4' → f = 0.8"), "estimated");
+  assert.equal(core.sourceKind("virtual"), "assumed");
+  assert.equal(core.sourceKind("DailyMed 12.3"), "cited");
+  const a = parse({ name: "A", inhibits: { CYP3A: { s: 0.85, t: 0.85, source: "추정: 강한 억제제" } } });
+  const b = parse({ name: "B", metabolism: { CYP3A: { f: 0.8, g: 0, source: "추정: 주로 CYP3A" } } });
+  const res = core.assessData([a, b], core.parseRules({ effects: {} }));
+  assert.equal(res.values.estimated, 2);
+  assert.equal(res.conc.status, "ok");
 });

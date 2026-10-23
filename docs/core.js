@@ -967,10 +967,11 @@ export function parseSet(raw, enzymes, fallbackRules = null) {
 
 // ---------------------------------------------------------------- 데이터가 충분한지
 
-// 출처 칸으로 값의 종류를 나눈다: 출처 있음 / 가정값(virtual, "가정"으로 시작) / 출처 빈칸
+// 출처 칸으로 값의 종류를 나눈다: 출처 있음 / 추정값("추정"으로 시작, 추측 모드) / 가정값(virtual, "가정"으로 시작) / 출처 빈칸
 export function sourceKind(src) {
   const text = (src || "").trim();
   if (!text) return "empty";
+  if (text.startsWith("추정")) return "estimated";
   if (/^virtual$/i.test(text) || text.startsWith("가정")) return "assumed";
   return "cited";
 }
@@ -989,7 +990,7 @@ export function assessData(drugs, rules) {
     actions: Object.keys(d.actions).length,
     linked: Object.keys(d.actions).filter((t) => known.has(t)).length,
   }));
-  const values = { cited: 0, assumed: 0, empty: 0 };
+  const values = { cited: 0, estimated: 0, assumed: 0, empty: 0 };
   for (const d of drugs) {
     for (const sec of ["metabolism", "inhibits", "induces", "actions"]) {
       for (const item of Object.values(d[sec])) values[sourceKind(item.source)] += 1;

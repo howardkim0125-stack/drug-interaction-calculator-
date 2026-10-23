@@ -4,9 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="상호작용 계산기">
+  <meta name="apple-mobile-web-app-title" content="약물상호작용">
   <meta name="description" content="약 이름만 넣으면 AI와 함께 약물 상호작용을 수학 모델로 계산하는 탐구용 계산기. 계산은 기기 안에서만 한다.">
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="color-scheme" content="light">
   <title>약물 상호작용 계산기</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -17,14 +18,7 @@
 <body>
   <header class="top">
     <div class="brand">
-      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
-        <rect width="64" height="64" rx="16" fill="currentColor"/>
-        <g transform="rotate(-45 32 32)">
-          <rect x="12" y="23" width="40" height="18" rx="9" fill="#ffffff"/>
-          <path d="M32 23h11a9 9 0 0 1 0 18H32z" fill="#99f6e4"/>
-        </g>
-        <circle cx="47" cy="47" r="7" fill="#fbbf24" stroke="#ffffff" stroke-width="3"/>
-      </svg>
+      <img class="logo" src="icon.svg" alt="" width="44" height="44">
       <div>
         <h1>약물 상호작용 계산기</h1>
         <p class="sub">함께 먹는 약끼리의 영향을 수학 모델로 계산해요 · 입력은 이 기기 밖으로 나가지 않아요</p>
@@ -54,6 +48,17 @@
         <div id="name-chips" class="pills" aria-live="polite"></div>
         <p class="hint">쉼표나 줄바꿈으로 나눠 적어요. <b>용량은 안 적어도 돼요</b> — 허가사항의 성인 1회 권장 용량을 기준으로 계산해요.
           다른 용량이면 이름 옆에 적어요(예: 이부프로펜 400mg).</p>
+        <div class="guess">
+          <label class="switch" for="guess"><input type="checkbox" id="guess" role="switch"><span class="slider" aria-hidden="true"></span></label>
+          <div>
+            <label for="guess"><b>추측 모드</b></label> <span id="guess-state" class="badge same">꺼짐</span>
+            <p class="hint" id="guess-hint"></p>
+          </div>
+        </div>
+        <details class="plain">
+          <summary>AI가 찾아볼 자료 출처 <span id="source-count"></span></summary>
+          <ol id="sources" class="sources"></ol>
+        </details>
         <div class="row">
           <button id="copy-make" class="primary" disabled>AI에게 물어볼 글 복사</button>
           <button id="example" class="ghost">예시로 바로 해 보기</button>
@@ -160,6 +165,17 @@
           <p class="note">AI는 숫자를 지어내지 않고, 출처를 찾은 값만 넣도록 지시받아요. 그래도 AI가 준 숫자는 <code>source</code>의 문서에서 직접 확인하세요.</p>
         </article>
 
+        <article class="step" data-title="출처와 추측 모드" hidden>
+          <h3>자료 출처와 추측 모드</h3>
+          <p>AI에게 보내는 글에는 공신력 있는 자료 출처 목록(DailyMed 허가 라벨, FDA 상호작용 표, 의약품안전나라, 논문 검색 등)이 들어가요. AI는 여기서 먼저 숫자를 찾아요.</p>
+          <ul>
+            <li><b>추측 모드 꺼짐</b>(기본): 출처에서 확인한 숫자만 넣어요. 못 찾은 값은 비워 두고, 계산기가 「데이터가 없어서 계산하지 못했다」고 알려 줘요.</li>
+            <li><b>추측 모드 켜짐</b>: 정확한 숫자가 없으면 「주로 CYP3A4로 대사된다」, 「강한 억제제」 같은 설명 글을 보고 정해진 기준표에 따라 값을 추정해 넣어요.
+              추정값은 출처 칸이 「추정:」으로 시작하고, 결과에 <span class="tag up">추정값 포함</span>으로 표시돼요.</li>
+          </ul>
+          <p class="note">추정값은 설명 글을 숫자로 어림한 것이라 실제와 다를 수 있어요. 탐구 보고서에는 어떤 값이 추정인지 함께 적으세요.</p>
+        </article>
+
         <article class="step" data-title="붙여 넣고 계산" hidden>
           <h3>2. AI 답 붙여 넣고 계산하기</h3>
           <ol>
@@ -236,6 +252,11 @@
           <summary>입력 만들기 프롬프트 (약 이름 칸이 비어 있는 원본)</summary>
           <textarea id="make-prompt" class="prompt" readonly aria-label="입력 만들기 프롬프트"></textarea>
           <div class="row"><button id="copy-make-empty">원본 복사</button></div>
+        </details>
+        <details class="plain">
+          <summary>입력 만들기 프롬프트 — 추측 모드 켜짐 (원본)</summary>
+          <textarea id="make-prompt-guess" class="prompt" readonly aria-label="입력 만들기 프롬프트, 추측 모드"></textarea>
+          <div class="row"><button id="copy-make-guess">원본 복사</button></div>
         </details>
         <details class="plain">
           <summary>결과 해석 프롬프트 (결과 칸이 비어 있는 원본)</summary>

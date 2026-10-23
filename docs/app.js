@@ -1,13 +1,14 @@
 // 화면 처리. 계산은 모두 core.js(파이썬과 같은 식)로 하고, summary.js는 결과를 쉬운 말로 바꾸기만 한다.
 import * as core from "./core.js";
 import { CONFIG, DEMO_SET, ENZYMES } from "./data.js";
-import { MAKE_PROMPT, READ_PROMPT, RESULT_SLOT, makePrompt, parseNames } from "./prompts.js";
+import { MAKE_PROMPT, MAKE_PROMPT_GUESS, READ_PROMPT, RESULT_SLOT, SOURCES, makePrompt, parseNames } from "./prompts.js";
 import { buildSummary, CAUSE_PLAIN, VERDICT_PLAIN, VERDICT_TONE } from "./summary.js";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
 const STORE_INPUT = "dic.input.v1";
 const STORE_NAMES = "dic.names.v1";
+const STORE_GUESS = "dic.guess.v1";
 const TABS = ["calc", "rules", "tutorial", "install"];
 
 const state = {
@@ -121,8 +122,21 @@ function renderNames() {
     + `<button type="button" data-remove="${i}" aria-label="${esc(n)} 빼기">×</button></span>`).join("");
   $("#copy-make").disabled = names.length === 0;
   $("#copy-make").textContent = names.length ? `AI에게 물어볼 글 복사 (약 ${names.length}개)` : "AI에게 물어볼 글 복사";
-  $("#make-preview").value = makePrompt(names);
+  $("#make-preview").value = makePrompt(names, { guess: guessOn() });
   updateStepper();
+}
+
+const guessOn = () => $("#guess").checked;
+
+function renderGuess() {
+  const on = guessOn();
+  storeSet(STORE_GUESS, on ? "1" : "0");
+  $("#guess-state").textContent = on ? "켜짐" : "꺼짐";
+  $("#guess-state").className = `badge ${on ? "up" : "same"}`;
+  $("#guess-hint").textContent = on
+    ? "정확한 숫자가 없으면 AI가 허가 라벨·논문의 설명 글을 보고 정해진 기준표로 값을 추정해 넣어요. 추정값은 결과에 「추정」으로 표시돼요."
+    : "출처에서 확인한 숫자만 넣어요. 못 찾은 값은 비워 두고 「데이터가 없어서 계산하지 못했다」고 알려 줘요. AI가 대부분 못 찾으면 켜 보세요.";
+  renderNames();
 }
 
 function removeName(index) {
@@ -226,7 +240,7 @@ const HEAD_ICON = { alert: "⚠️", calm: "✅", partial: "◐", nodata: "⛔" 
 
 function dataStatusHtml(a) {
   const v = a.values;
-  const total = v.cited + v.assumed + v.empty;
+  const total = v.cited + v.estimated + v.assumed + v.empty;
   const line = (label, part) => `<li class="${STATUS_CLASS[part.status]}"><b>${label}</b>: ${esc(part.text)}${
     part.notes.length ? `<ul>${part.notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</li>`;
   const head = {
@@ -235,7 +249,7 @@ function dataStatusHtml(a) {
     nodata: "데이터가 없어서 계산하지 못했어요",
   }[a.overall];
   const valueLine = total
-    ? `입력된 값 ${total}개: 출처 있음 ${v.cited}개, 가정값(virtual·가정) ${v.assumed}개, 출처 빈칸 ${v.empty}개`
+    ? `입력된 값 ${total}개: 출처 있음 ${v.cited}개, 추정값 ${v.estimated}개, 가정값(virtual·가정) ${v.assumed}개, 출처 빈칸 ${v.empty}개`
     : "입력된 값이 하나도 없어요";
   const { missing, doseBasis } = state.set;
   const doseHtml = doseBasis.length
@@ -276,6 +290,10 @@ function renderResult() {
   const h = sum.headline;
   out.push(`<div class="headline ${h.tone}"><span class="icon" aria-hidden="true">${HEAD_ICON[h.tone]}</span>
     <div><h3>${esc(h.title)}</h3><p>${esc(h.text)}</p></div></div>`);
+  if (a.values.estimated) {
+    out.push(`<p class="estimate-note"><span class="badge up">추정값 포함</span> 값 ${a.values.estimated + a.values.cited + a.values.assumed + a.values.empty}개 중
+      ${a.values.estimated}개는 설명 글로 어림한 추정값이에요. 실제와 다를 수 있어요.</p>`);
+  }
   out.push(dataStatusHtml(a));
 
   const hasNumbers = a.overall !== "nodata";
@@ -402,7 +420,7 @@ function statusText(a) {
   const v = a.values;
   const lines = [`(가) 평균 농도 변화: ${a.conc.text}`, ...a.conc.notes.map((n) => `  - ${n}`),
     `(나) 작용의 겹침: ${a.effect.text}`, ...a.effect.notes.map((n) => `  - ${n}`),
-    `입력된 값: 출처 있음 ${v.cited}개, 가정값(virtual·가정) ${v.assumed}개, 출처 빈칸 ${v.empty}개`];
+    `입력된 값: 출처 있음 ${v.cited}개, 추정값(설명 글로 어림) ${v.estimated}개, 가정값(virtual·가정) ${v.assumed}개, 출처 빈칸 ${v.empty}개`];
   const { missing, doseBasis } = state.set;
   lines.push("[용량 기준]");
   if (doseBasis.length) for (const d of doseBasis) lines.push(`  - ${d.drug}: ${d.dose}${d.source ? ` (${d.source})` : ""}`);
@@ -616,7 +634,7 @@ function init() {
   });
   $("#copy-make").addEventListener("click", async () => {
     const names = parseNames($("#names").value);
-    if (await copyText(makePrompt(names), "AI에게 물어볼 글을")) {
+    if (await copyText(makePrompt(names, { guess: guessOn() }), "AI에게 물어볼 글을")) {
       toast("복사했어요. AI 채팅에 붙여 넣고, 받은 답을 2번 칸에 붙여 넣으세요");
     }
   });
@@ -674,6 +692,13 @@ function init() {
   $("#make-prompt").value = MAKE_PROMPT;
   $("#read-prompt").value = READ_PROMPT;
   $("#copy-make-empty").addEventListener("click", () => copyText(MAKE_PROMPT, "입력 만들기 프롬프트를"));
+  $("#make-prompt-guess").value = MAKE_PROMPT_GUESS;
+  $("#copy-make-guess").addEventListener("click", () => copyText(MAKE_PROMPT_GUESS, "추측 모드 프롬프트를"));
+  $("#source-count").textContent = `${SOURCES.length}곳`;
+  $("#sources").innerHTML = SOURCES.map((x) => `<li><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)}</a>
+    <span class="muted">— ${esc(x.find)}</span></li>`).join("");
+  $("#guess").checked = storeGet(STORE_GUESS) === "1";
+  $("#guess").addEventListener("change", renderGuess);
   $("#copy-read-empty").addEventListener("click", () => copyText(READ_PROMPT, "해석 프롬프트를"));
 
   $("#enzymes").innerHTML = ENZYMES.map((e) => `<span>${esc(e)}</span>`).join("");
@@ -682,7 +707,7 @@ function init() {
   renderRules();
 
   $("#names").value = storeGet(STORE_NAMES) || "";
-  renderNames();
+  renderGuess();
   const saved = storeGet(STORE_INPUT);
   if (saved && saved.trim()) {
     $("#input").value = saved;
